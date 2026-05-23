@@ -1,0 +1,1 @@
+-- Seed data is intentionally empty for Sprint 1A.
