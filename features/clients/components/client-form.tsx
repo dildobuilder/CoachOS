@@ -1,10 +1,11 @@
 import type { Database } from "@/lib/database.types";
+import { DatePickerInput } from "@/components/forms/date-picker-input";
+import { SubmitButton } from "@/components/forms/submit-button";
+import { FormError } from "@/components/feedback/form-error";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { SubmitButton } from "@/components/forms/submit-button";
-import { FormError } from "@/components/feedback/form-error";
 
 type Client = Database["public"]["Tables"]["clients"]["Row"];
 
@@ -26,7 +27,13 @@ export function ClientForm({ action, client, error }: ClientFormProps) {
           <Field label="Предпочитаемое имя" name="preferred_name" defaultValue={client?.preferred_name} />
           <Field label="Телефон" name="phone" defaultValue={client?.phone} />
           <Field label="Email" name="email" type="email" defaultValue={client?.email} />
-          <Field label="Дата рождения" name="birth_date" type="date" defaultValue={client?.birth_date} />
+          <Field
+            label="Дата рождения"
+            name="birth_date"
+            type="date"
+            defaultValue={client?.birth_date}
+            dateMode="birth_date"
+          />
           <div className="space-y-2">
             <Label htmlFor="sex">Пол</Label>
             <Select id="sex" name="sex" defaultValue={client?.sex ?? ""}>
@@ -36,7 +43,14 @@ export function ClientForm({ action, client, error }: ClientFormProps) {
               <option value="other">Другое</option>
             </Select>
           </div>
-          <Field label="Дата начала работы" name="started_at" type="date" defaultValue={client?.started_at} />
+          <Field
+            label="Дата начала работы"
+            name="started_at"
+            type="date"
+            defaultValue={client?.started_at}
+            dateMode="started_at"
+            defaultToToday
+          />
           <div className="space-y-2">
             <Label htmlFor="status">Статус</Label>
             <Select id="status" name="status" defaultValue={client?.status ?? "active"}>
@@ -77,18 +91,32 @@ function Field({
   name,
   defaultValue,
   type = "text",
-  required = false
+  required = false,
+  dateMode,
+  defaultToToday = false
 }: {
   label: string;
   name: string;
   defaultValue?: string | null;
   type?: string;
   required?: boolean;
+  dateMode?: "birth_date" | "started_at";
+  defaultToToday?: boolean;
 }) {
   return (
     <div className="space-y-2">
       <Label htmlFor={name}>{label}</Label>
-      <Input id={name} name={name} type={type} defaultValue={defaultValue ?? ""} required={required} />
+      {type === "date" && dateMode ? (
+        <DatePickerInput
+          id={name}
+          name={name}
+          mode={dateMode}
+          defaultValue={defaultValue}
+          defaultToToday={defaultToToday}
+        />
+      ) : (
+        <Input id={name} name={name} type={type} defaultValue={defaultValue ?? ""} required={required} />
+      )}
     </div>
   );
 }

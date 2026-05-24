@@ -74,6 +74,7 @@ Sprint 1A does not include calendar or workouts.
 - Add `calendar_events`, `workout_sessions`, `session_exercises`, and `session_sets`.
 - Add RLS policies for Sprint 1B tables.
 - Create day dashboard and day calendar.
+- Use `docs/CALENDAR_UX_REFERENCE.md` and the attached Yandex Calendar video as the visual reference for the day timeline.
 - Create training event flow.
 - Start workout from event.
 - Add exercises and sets to a workout session.
