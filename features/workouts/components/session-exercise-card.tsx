@@ -29,7 +29,7 @@ export function SessionExerciseCard({ exercise, readonly = false }: SessionExerc
             {exercise.notes ? <p className="mt-2 text-sm text-muted-foreground">{exercise.notes}</p> : null}
           </div>
         ) : (
-          <form action={updateSessionExercise.bind(null, exercise.id)} className="grid gap-3">
+          <form action={updateSessionExercise.bind(null, exercise.session_id, exercise.id)} className="grid gap-3">
             <div className="grid gap-3 sm:grid-cols-[1fr_180px_auto]">
               <div className="space-y-2">
                 <Label>Упражнение</Label>
@@ -64,7 +64,7 @@ export function SessionExerciseCard({ exercise, readonly = false }: SessionExerc
                 </div>
               ) : (
                 <div key={set.id} className="grid gap-2 rounded-md border bg-background p-3">
-                  <form action={updateSessionSet.bind(null, set.id)} className="grid gap-2 sm:grid-cols-[1fr_1fr_1fr_1fr_auto]">
+                  <form action={updateSessionSet.bind(null, exercise.session_id, set.id)} className="grid gap-2 sm:grid-cols-[1fr_1fr_1fr_1fr_auto]">
                     <Input name="weight" type="number" step="0.5" min="0" defaultValue={set.weight ?? ""} placeholder="кг" />
                     <Input name="reps" type="number" step="1" min="1" defaultValue={set.reps ?? ""} placeholder="повт." />
                     {intensityType === "none" ? (
@@ -77,7 +77,7 @@ export function SessionExerciseCard({ exercise, readonly = false }: SessionExerc
                       OK
                     </SubmitButton>
                   </form>
-                  <form action={deleteSessionSet.bind(null, set.id)} className="flex justify-end">
+                  <form action={deleteSessionSet.bind(null, exercise.session_id, set.id)} className="flex justify-end">
                     <Button type="submit" variant="ghost" size="sm">
                       <Trash2 className="h-4 w-4" />
                       Удалить подход
@@ -91,8 +91,8 @@ export function SessionExerciseCard({ exercise, readonly = false }: SessionExerc
 
         {!readonly ? (
           <div className="space-y-3">
-            <AddSetForm exerciseId={exercise.id} intensityType={intensityType} />
-            <form action={deleteSessionExercise.bind(null, exercise.id)} className="flex justify-end">
+            <AddSetForm sessionId={exercise.session_id} exerciseId={exercise.id} intensityType={intensityType} />
+            <form action={deleteSessionExercise.bind(null, exercise.session_id, exercise.id)} className="flex justify-end">
               <Button type="submit" variant="ghost" size="sm">
                 <Trash2 className="h-4 w-4" />
                 Удалить упражнение

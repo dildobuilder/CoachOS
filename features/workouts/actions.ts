@@ -2,16 +2,30 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { isRedirectError } from "next/dist/client/components/redirect";
 import { createClient as createSupabaseClient } from "@/lib/supabase/server";
 import { completeSessionSchema, exerciseSchema, setSchema, validateIntensityValue } from "@/features/workouts/schemas";
 import type { Tables, TablesInsert, TablesUpdate } from "@/lib/database.types";
+import { getReadableErrorMessage, isTransientNetworkError } from "@/lib/errors";
 
-async function getUserId() {
+async function getUserId(errorPath: string) {
   const supabase = createSupabaseClient();
+  let response;
+
+  try {
+    response = await supabase.auth.getUser();
+  } catch (error) {
+    redirect(`${errorPath}?error=${encodeURIComponent(getReadableErrorMessage(error))}`);
+  }
+
   const {
     data: { user },
     error
-  } = await supabase.auth.getUser();
+  } = response;
+
+  if (error && isTransientNetworkError(error.message)) {
+    redirect(`${errorPath}?error=${encodeURIComponent(getReadableErrorMessage(error))}`);
+  }
 
   if (error || !user) {
     redirect("/login");
@@ -38,13 +52,14 @@ function setFormDataToObject(formData: FormData) {
 }
 
 export async function addExerciseToSession(sessionId: string, formData: FormData) {
+  try {
   const parsed = exerciseSchema.safeParse(exerciseFormDataToObject(formData));
 
   if (!parsed.success) {
     redirect(`/sessions/${sessionId}?error=${encodeURIComponent(parsed.error.issues[0]?.message ?? "Ошибка")}`);
   }
 
-  const trainerId = await getUserId();
+  const trainerId = await getUserId(`/sessions/${sessionId}`);
   await ensureSessionIsStarted(sessionId);
   const supabase = createSupabaseClient();
   const nextPosition = await getNextExercisePosition(sessionId);
@@ -63,9 +78,13 @@ export async function addExerciseToSession(sessionId: string, formData: FormData
   }
 
   revalidatePath(`/sessions/${sessionId}`);
+  } catch (error) {
+    redirectActionError(error, `/sessions/${sessionId}`);
+  }
 }
 
-export async function updateSessionExercise(exerciseId: string, formData: FormData) {
+export async function updateSessionExercise(sessionId: string, exerciseId: string, formData: FormData) {
+  try {
   const parsed = exerciseSchema.safeParse(exerciseFormDataToObject(formData));
   const exercise = await getExerciseById(exerciseId);
 
@@ -87,10 +106,14 @@ export async function updateSessionExercise(exerciseId: string, formData: FormDa
   }
 
   revalidatePath(`/sessions/${exercise.session_id}`);
+  } catch (error) {
+    redirectActionError(error, `/sessions/${sessionId}`);
+  }
 }
 
-export async function deleteSessionExercise(exerciseId: string) {
-  await getUserId();
+export async function deleteSessionExercise(sessionId: string, exerciseId: string) {
+  try {
+  await getUserId(`/sessions/${sessionId}`);
   const exercise = await getExerciseById(exerciseId);
   await ensureSessionIsStarted(exercise.session_id);
   const supabase = createSupabaseClient();
@@ -101,11 +124,15 @@ export async function deleteSessionExercise(exerciseId: string) {
   }
 
   revalidatePath(`/sessions/${exercise.session_id}`);
+  } catch (error) {
+    redirectActionError(error, `/sessions/${sessionId}`);
+  }
 }
 
-export async function addSetToExercise(exerciseId: string, formData: FormData) {
+export async function addSetToExercise(sessionId: string, exerciseId: string, formData: FormData) {
+  try {
   const parsed = setSchema.safeParse(setFormDataToObject(formData));
-  const trainerId = await getUserId();
+  const trainerId = await getUserId(`/sessions/${sessionId}`);
   const exercise = await getExerciseById(exerciseId);
 
   if (!parsed.success) {
@@ -132,9 +159,13 @@ export async function addSetToExercise(exerciseId: string, formData: FormData) {
   }
 
   revalidatePath(`/sessions/${exercise.session_id}`);
+  } catch (error) {
+    redirectActionError(error, `/sessions/${sessionId}`);
+  }
 }
 
-export async function updateSessionSet(setId: string, formData: FormData) {
+export async function updateSessionSet(sessionId: string, setId: string, formData: FormData) {
+  try {
   const parsed = setSchema.safeParse(setFormDataToObject(formData));
   const { set, exercise } = await getSetWithExercise(setId);
 
@@ -159,10 +190,14 @@ export async function updateSessionSet(setId: string, formData: FormData) {
   }
 
   revalidatePath(`/sessions/${exercise.session_id}`);
+  } catch (error) {
+    redirectActionError(error, `/sessions/${sessionId}`);
+  }
 }
 
-export async function deleteSessionSet(setId: string) {
-  await getUserId();
+export async function deleteSessionSet(sessionId: string, setId: string) {
+  try {
+  await getUserId(`/sessions/${sessionId}`);
   const { exercise } = await getSetWithExercise(setId);
   await ensureSessionIsStarted(exercise.session_id);
   const supabase = createSupabaseClient();
@@ -173,9 +208,13 @@ export async function deleteSessionSet(setId: string) {
   }
 
   revalidatePath(`/sessions/${exercise.session_id}`);
+  } catch (error) {
+    redirectActionError(error, `/sessions/${sessionId}`);
+  }
 }
 
 export async function completeWorkoutSession(sessionId: string, formData: FormData) {
+  try {
   const parsed = completeSessionSchema.safeParse({
     coach_notes: formData.get("coach_notes")
   });
@@ -184,7 +223,7 @@ export async function completeWorkoutSession(sessionId: string, formData: FormDa
     redirect(`/sessions/${sessionId}?error=${encodeURIComponent(parsed.error.issues[0]?.message ?? "Ошибка")}`);
   }
 
-  await getUserId();
+  await getUserId(`/sessions/${sessionId}`);
   const session = await ensureSessionIsStarted(sessionId);
   const completedAt = new Date();
   const durationSeconds = Math.max(
@@ -214,6 +253,17 @@ export async function completeWorkoutSession(sessionId: string, formData: FormDa
   revalidatePath("/calendar");
   revalidatePath("/dashboard");
   redirect(`/clients/${session.client_id}/history`);
+  } catch (error) {
+    redirectActionError(error, `/sessions/${sessionId}`);
+  }
+}
+
+function redirectActionError(error: unknown, path: string): never {
+  if (isRedirectError(error)) {
+    throw error;
+  }
+
+  redirect(`${path}?error=${encodeURIComponent(getReadableErrorMessage(error))}`);
 }
 
 async function ensureSessionIsStarted(sessionId: string): Promise<Tables<"workout_sessions">> {
