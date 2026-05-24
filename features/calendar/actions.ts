@@ -1,5 +1,228 @@
 "use server";
 
-export async function createCalendarEvent() {
-  throw new Error("Calendar is planned for Sprint 1B.");
+import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
+import { calendarEventSchema, updateCalendarEventSchema } from "@/features/calendar/schemas";
+import { getTrainerProfile } from "@/features/trainer/queries";
+import { createClient as createSupabaseClient } from "@/lib/supabase/server";
+import type { TablesInsert, TablesUpdate } from "@/lib/database.types";
+
+function formDataToObject(formData: FormData) {
+  return {
+    client_id: formData.get("client_id"),
+    date: formData.get("date"),
+    starts_at_time: formData.get("starts_at_time"),
+    duration_minutes: formData.get("duration_minutes"),
+    title: formData.get("title"),
+    notes: formData.get("notes"),
+    status: formData.get("status")
+  };
+}
+
+async function getUserId() {
+  const supabase = createSupabaseClient();
+  const {
+    data: { user },
+    error
+  } = await supabase.auth.getUser();
+
+  if (error || !user) {
+    redirect("/login");
+  }
+
+  return user.id;
+}
+
+export async function createCalendarEvent(formData: FormData) {
+  const parsed = calendarEventSchema.safeParse(formDataToObject(formData));
+
+  if (!parsed.success) {
+    redirect(`/calendar?error=${encodeURIComponent(parsed.error.issues[0]?.message ?? "Ошибка")}`);
+  }
+
+  const trainerId = await getUserId();
+  const profile = await getTrainerProfile();
+  const timezone = profile?.timezone || "Europe/Moscow";
+  const supabase = createSupabaseClient();
+  const { data: client, error: clientError } = await supabase
+    .from("clients")
+    .select("id, name, preferred_name")
+    .eq("id", parsed.data.client_id)
+    .neq("status", "archived")
+    .maybeSingle();
+
+  if (clientError || !client) {
+    redirect(`/calendar?error=${encodeURIComponent(clientError?.message ?? "Клиент не найден")}`);
+  }
+
+  const startsAt = formDateTimeToUtc(parsed.data.date, parsed.data.starts_at_time, timezone);
+  const endsAt = new Date(startsAt.getTime() + parsed.data.duration_minutes * 60 * 1000);
+  const eventInsert: TablesInsert<"calendar_events"> = {
+    trainer_id: trainerId,
+    client_id: client.id,
+    type: "client_training",
+    title: parsed.data.title || client.preferred_name || client.name,
+    starts_at: startsAt.toISOString(),
+    ends_at: endsAt.toISOString(),
+    notes: parsed.data.notes
+  };
+
+  const { error } = await supabase.from("calendar_events").insert(eventInsert);
+
+  if (error) {
+    redirect(`/calendar?error=${encodeURIComponent(error.message)}`);
+  }
+
+  revalidatePath("/calendar");
+  revalidatePath("/dashboard");
+  redirect("/calendar");
+}
+
+export async function updateCalendarEvent(eventId: string, formData: FormData) {
+  const parsed = updateCalendarEventSchema.safeParse(formDataToObject(formData));
+
+  if (!parsed.success) {
+    redirect(`/calendar?error=${encodeURIComponent(parsed.error.issues[0]?.message ?? "Ошибка")}`);
+  }
+
+  await getUserId();
+  const profile = await getTrainerProfile();
+  const timezone = profile?.timezone || "Europe/Moscow";
+  const startsAt = formDateTimeToUtc(parsed.data.date, parsed.data.starts_at_time, timezone);
+  const endsAt = new Date(startsAt.getTime() + parsed.data.duration_minutes * 60 * 1000);
+  const eventUpdate: TablesUpdate<"calendar_events"> = {
+    client_id: parsed.data.client_id,
+    title: parsed.data.title ?? undefined,
+    starts_at: startsAt.toISOString(),
+    ends_at: endsAt.toISOString(),
+    status: parsed.data.status,
+    notes: parsed.data.notes
+  };
+  const supabase = createSupabaseClient();
+  const { error } = await supabase.from("calendar_events").update(eventUpdate).eq("id", eventId);
+
+  if (error) {
+    redirect(`/calendar?error=${encodeURIComponent(error.message)}`);
+  }
+
+  revalidatePath("/calendar");
+  revalidatePath("/dashboard");
+}
+
+export async function cancelCalendarEvent(eventId: string) {
+  await getUserId();
+  const supabase = createSupabaseClient();
+  const eventUpdate: TablesUpdate<"calendar_events"> = { status: "cancelled" };
+  const { error } = await supabase.from("calendar_events").update(eventUpdate).eq("id", eventId);
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  revalidatePath("/calendar");
+  revalidatePath("/dashboard");
+}
+
+export async function startWorkoutFromEvent(eventId: string) {
+  const trainerId = await getUserId();
+  const supabase = createSupabaseClient();
+  const { data: event, error: eventError } = await supabase
+    .from("calendar_events")
+    .select("*")
+    .eq("id", eventId)
+    .maybeSingle();
+
+  if (eventError || !event) {
+    redirect(`/calendar?error=${encodeURIComponent(eventError?.message ?? "Событие не найдено")}`);
+  }
+
+  if (event.type !== "client_training" || !event.client_id) {
+    redirect(`/calendar?error=${encodeURIComponent("Для события нельзя начать тренировку")}`);
+  }
+
+  const { data: existingSession, error: existingError } = await supabase
+    .from("workout_sessions")
+    .select("id, status")
+    .eq("calendar_event_id", event.id)
+    .maybeSingle();
+
+  if (existingError) {
+    redirect(`/calendar?error=${encodeURIComponent(existingError.message)}`);
+  }
+
+  if (existingSession && ["started", "completed"].includes(existingSession.status)) {
+    redirect(`/sessions/${existingSession.id}`);
+  }
+
+  const sessionInsert: TablesInsert<"workout_sessions"> = {
+    trainer_id: trainerId,
+    client_id: event.client_id,
+    calendar_event_id: event.id,
+    status: "started"
+  };
+  const { data: session, error: sessionError } = await supabase
+    .from("workout_sessions")
+    .insert(sessionInsert)
+    .select("id")
+    .single();
+
+  if (sessionError) {
+    const { data: duplicateSession } = await supabase
+      .from("workout_sessions")
+      .select("id")
+      .eq("calendar_event_id", event.id)
+      .maybeSingle();
+
+    if (duplicateSession) {
+      redirect(`/sessions/${duplicateSession.id}`);
+    }
+
+    redirect(`/calendar?error=${encodeURIComponent(sessionError.message)}`);
+  }
+
+  const eventUpdate: TablesUpdate<"calendar_events"> = { status: "started" };
+  await supabase.from("calendar_events").update(eventUpdate).eq("id", event.id);
+
+  revalidatePath("/calendar");
+  revalidatePath("/dashboard");
+  redirect(`/sessions/${session.id}`);
+}
+
+function formDateTimeToUtc(dateValue: string, timeValue: string, timezone: string) {
+  const [year, month, day] = dateValue.split("-").map(Number);
+  const [hour, minute] = timeValue.split(":").map(Number);
+
+  if (!year || !month || !day || Number.isNaN(hour) || Number.isNaN(minute)) {
+    throw new Error("Invalid event date");
+  }
+
+  const utcGuess = new Date(Date.UTC(year, month - 1, day, hour, minute));
+  const offset = getTimeZoneOffsetMs(utcGuess, timezone);
+
+  return new Date(utcGuess.getTime() - offset);
+}
+
+function getTimeZoneOffsetMs(date: Date, timeZone: string) {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone,
+    timeZoneName: "shortOffset",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit"
+  }).formatToParts(date);
+
+  const timeZoneName = parts.find((part) => part.type === "timeZoneName")?.value ?? "GMT";
+  const match = timeZoneName.match(/GMT([+-])(\d{1,2})(?::(\d{2}))?/);
+
+  if (!match) {
+    return 0;
+  }
+
+  const direction = match[1] === "-" ? -1 : 1;
+  const hours = Number(match[2]);
+  const minutes = Number(match[3] ?? "0");
+
+  return direction * (hours * 60 + minutes) * 60 * 1000;
 }

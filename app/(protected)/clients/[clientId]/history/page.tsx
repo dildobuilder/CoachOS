@@ -1,8 +1,9 @@
 import Link from "next/link";
-import { EmptyState } from "@/components/empty-states/empty-state";
 import { PageHeader } from "@/components/layout/page-header";
 import { Button } from "@/components/ui/button";
 import { getClientById } from "@/features/clients/queries";
+import { ClientSessionHistory } from "@/features/workouts/components/client-session-history";
+import { getClientSessionHistory } from "@/features/workouts/queries";
 
 type ClientHistoryPageProps = {
   params: {
@@ -11,21 +12,21 @@ type ClientHistoryPageProps = {
 };
 
 export default async function ClientHistoryPage({ params }: ClientHistoryPageProps) {
-  const client = await getClientById(params.clientId);
+  const [client, sessions] = await Promise.all([
+    getClientById(params.clientId),
+    getClientSessionHistory(params.clientId)
+  ]);
 
   return (
     <div className="space-y-6">
       <PageHeader
         title="История тренировок"
-        description={`${client.preferred_name || client.name}. Будет реализовано в Sprint 1B.`}
+        description={client.preferred_name || client.name}
       />
       <Button asChild variant="outline">
         <Link href={`/clients/${client.id}`}>Назад к клиенту</Link>
       </Button>
-      <EmptyState
-        title="История появится в Sprint 1B"
-        description="После реализации тренировочных сессий здесь будут завершенные тренировки клиента."
-      />
+      <ClientSessionHistory sessions={sessions} />
     </div>
   );
 }
