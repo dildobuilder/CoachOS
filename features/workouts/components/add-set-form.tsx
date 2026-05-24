@@ -6,13 +6,14 @@ import { IntensityValueInput } from "@/features/workouts/components/intensity-va
 import type { IntensityType } from "@/features/workouts/schemas";
 
 type AddSetFormProps = {
+  sessionId: string;
   exerciseId: string;
   intensityType: IntensityType;
 };
 
-export function AddSetForm({ exerciseId, intensityType }: AddSetFormProps) {
+export function AddSetForm({ sessionId, exerciseId, intensityType }: AddSetFormProps) {
   return (
-    <form action={addSetToExercise.bind(null, exerciseId)} className="grid gap-3 rounded-md bg-secondary/40 p-3">
+    <form action={addSetToExercise.bind(null, sessionId, exerciseId)} className="grid gap-3 rounded-md bg-secondary/40 p-3">
       <div className={intensityType === "none" ? "grid grid-cols-2 gap-3 sm:grid-cols-[1fr_1fr_auto]" : "grid grid-cols-2 gap-3 sm:grid-cols-[1fr_1fr_1fr_auto]"}>
         <div className="space-y-2">
           <Label>Вес</Label>

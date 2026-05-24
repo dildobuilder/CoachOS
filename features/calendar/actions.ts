@@ -2,10 +2,12 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { isRedirectError } from "next/dist/client/components/redirect";
 import { calendarEventSchema, updateCalendarEventSchema } from "@/features/calendar/schemas";
 import { getTrainerProfile } from "@/features/trainer/queries";
 import { createClient as createSupabaseClient } from "@/lib/supabase/server";
 import type { TablesInsert, TablesUpdate } from "@/lib/database.types";
+import { getReadableErrorMessage, isTransientNetworkError } from "@/lib/errors";
 
 function formDataToObject(formData: FormData) {
   return {
@@ -19,12 +21,24 @@ function formDataToObject(formData: FormData) {
   };
 }
 
-async function getUserId() {
+async function getUserId(errorPath = "/calendar") {
   const supabase = createSupabaseClient();
+  let response;
+
+  try {
+    response = await supabase.auth.getUser();
+  } catch (error) {
+    redirect(`${errorPath}?error=${encodeURIComponent(getReadableErrorMessage(error))}`);
+  }
+
   const {
     data: { user },
     error
-  } = await supabase.auth.getUser();
+  } = response;
+
+  if (error && isTransientNetworkError(error.message)) {
+    redirect(`${errorPath}?error=${encodeURIComponent(getReadableErrorMessage(error))}`);
+  }
 
   if (error || !user) {
     redirect("/login");
@@ -34,6 +48,7 @@ async function getUserId() {
 }
 
 export async function createCalendarEvent(formData: FormData) {
+  try {
   const parsed = calendarEventSchema.safeParse(formDataToObject(formData));
 
   if (!parsed.success) {
@@ -76,9 +91,17 @@ export async function createCalendarEvent(formData: FormData) {
   revalidatePath("/calendar");
   revalidatePath("/dashboard");
   redirect("/calendar");
+  } catch (error) {
+    if (isRedirectError(error)) {
+      throw error;
+    }
+
+    redirect(`/calendar?error=${encodeURIComponent(getReadableErrorMessage(error))}`);
+  }
 }
 
 export async function updateCalendarEvent(eventId: string, formData: FormData) {
+  try {
   const parsed = updateCalendarEventSchema.safeParse(formDataToObject(formData));
 
   if (!parsed.success) {
@@ -107,23 +130,39 @@ export async function updateCalendarEvent(eventId: string, formData: FormData) {
 
   revalidatePath("/calendar");
   revalidatePath("/dashboard");
+  } catch (error) {
+    if (isRedirectError(error)) {
+      throw error;
+    }
+
+    redirect(`/calendar?error=${encodeURIComponent(getReadableErrorMessage(error))}`);
+  }
 }
 
 export async function cancelCalendarEvent(eventId: string) {
+  try {
   await getUserId();
   const supabase = createSupabaseClient();
   const eventUpdate: TablesUpdate<"calendar_events"> = { status: "cancelled" };
   const { error } = await supabase.from("calendar_events").update(eventUpdate).eq("id", eventId);
 
-  if (error) {
-    throw new Error(error.message);
+    if (error) {
+      redirect(`/calendar?error=${encodeURIComponent(getReadableErrorMessage(error))}`);
   }
 
   revalidatePath("/calendar");
   revalidatePath("/dashboard");
+  } catch (error) {
+    if (isRedirectError(error)) {
+      throw error;
+    }
+
+    redirect(`/calendar?error=${encodeURIComponent(getReadableErrorMessage(error))}`);
+  }
 }
 
 export async function startWorkoutFromEvent(eventId: string) {
+  try {
   const trainerId = await getUserId();
   const supabase = createSupabaseClient();
   const { data: event, error: eventError } = await supabase
@@ -186,6 +225,13 @@ export async function startWorkoutFromEvent(eventId: string) {
   revalidatePath("/calendar");
   revalidatePath("/dashboard");
   redirect(`/sessions/${session.id}`);
+  } catch (error) {
+    if (isRedirectError(error)) {
+      throw error;
+    }
+
+    redirect(`/calendar?error=${encodeURIComponent(getReadableErrorMessage(error))}`);
+  }
 }
 
 function formDateTimeToUtc(dateValue: string, timeValue: string, timezone: string) {

@@ -3,11 +3,11 @@ import { PageHeader } from "@/components/layout/page-header";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { TodayEventsList } from "@/features/calendar/components/today-events-list";
-import { getTodayEvents } from "@/features/calendar/queries";
+import { getTodayEventsResult } from "@/features/calendar/queries";
 import { getClients } from "@/features/clients/queries";
 
 export default async function DashboardPage() {
-  const [clients, events] = await Promise.all([getClients(), getTodayEvents()]);
+  const [clients, eventsResult] = await Promise.all([getClients(), getTodayEventsResult()]);
   const today = new Intl.DateTimeFormat("ru-RU", {
     weekday: "long",
     day: "2-digit",
@@ -39,7 +39,7 @@ export default async function DashboardPage() {
               <Link href="/calendar">Календарь</Link>
             </Button>
           </div>
-          <TodayEventsList events={events} />
+          <TodayEventsList events={eventsResult.events} error={eventsResult.error} />
         </div>
       </div>
     </div>

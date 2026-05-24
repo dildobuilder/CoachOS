@@ -4,9 +4,18 @@ import type { CalendarEventWithClient } from "@/features/calendar/queries";
 
 type DayCalendarProps = {
   events: CalendarEventWithClient[];
+  error?: string | null;
 };
 
-export function DayCalendar({ events }: DayCalendarProps) {
+export function DayCalendar({ events, error }: DayCalendarProps) {
+  if (error) {
+    return (
+      <div className="rounded-lg border border-destructive/25 bg-destructive/10 p-4 text-sm text-destructive">
+        {error}
+      </div>
+    );
+  }
+
   if (events.length === 0) {
     return (
       <EmptyState

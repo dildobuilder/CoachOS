@@ -3,30 +3,33 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import type { TablesInsert } from "@/lib/database.types";
+import { isTransientNetworkError, retryResultOnTransientError } from "@/lib/errors";
 
 export async function ensureTrainerProfile() {
   const supabase = createClient();
   const {
     data: { user },
     error: userError
-  } = await supabase.auth.getUser();
+  } = await retryResultOnTransientError(() => supabase.auth.getUser());
 
   if (userError || !user) {
     return null;
   }
 
-  const { data: existingProfile, error: profileError } = await supabase
-    .from("trainer_profiles")
-    .select("*")
-    .eq("id", user.id)
-    .maybeSingle();
+  const { data: existingProfile, error: profileError } = await retryResultOnTransientError(() =>
+    supabase
+      .from("trainer_profiles")
+      .select("*")
+      .eq("id", user.id)
+      .maybeSingle()
+  );
 
   if (profileError && isMissingTrainerProfilesTableError(profileError.message)) {
     redirect("/login?setup=migrations");
   }
 
-  if (profileError && isTransientRequestError(profileError.message)) {
-    redirect(`/login?error=${encodeURIComponent("Сессия прервана. Войдите ещё раз.")}`);
+  if (profileError && isTransientNetworkError(profileError.message)) {
+    return null;
   }
 
   if (profileError) {
@@ -49,18 +52,20 @@ export async function ensureTrainerProfile() {
     onboarding_status: "active"
   };
 
-  const { data, error } = await supabase
-    .from("trainer_profiles")
-    .upsert(profileInsert, { onConflict: "id" })
-    .select()
-    .single();
+  const { data, error } = await retryResultOnTransientError(() =>
+    supabase
+      .from("trainer_profiles")
+      .upsert(profileInsert, { onConflict: "id" })
+      .select()
+      .single()
+  );
 
   if (error && isMissingTrainerProfilesTableError(error.message)) {
     redirect("/login?setup=migrations");
   }
 
-  if (error && isTransientRequestError(error.message)) {
-    redirect(`/login?error=${encodeURIComponent("Сессия прервана. Войдите ещё раз.")}`);
+  if (error && isTransientNetworkError(error.message)) {
+    return null;
   }
 
   if (error || !data) {
@@ -75,8 +80,4 @@ function isMissingTrainerProfilesTableError(message: string) {
     message.includes("trainer_profiles") &&
     (message.includes("schema cache") || message.includes("does not exist"))
   );
-}
-
-function isTransientRequestError(message: string) {
-  return message.includes("terminated") || message.includes("fetch failed") || message.includes("aborted");
 }

@@ -6,9 +6,18 @@ import type { CalendarEventWithClient } from "@/features/calendar/queries";
 
 type TodayEventsListProps = {
   events: CalendarEventWithClient[];
+  error?: string | null;
 };
 
-export function TodayEventsList({ events }: TodayEventsListProps) {
+export function TodayEventsList({ events, error }: TodayEventsListProps) {
+  if (error) {
+    return (
+      <div className="rounded-lg border border-destructive/25 bg-destructive/10 p-4 text-sm text-destructive">
+        {error}
+      </div>
+    );
+  }
+
   if (events.length === 0) {
     return (
       <EmptyState

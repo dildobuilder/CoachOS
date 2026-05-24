@@ -2,7 +2,7 @@ import { FormError } from "@/components/feedback/form-error";
 import { PageHeader } from "@/components/layout/page-header";
 import { DayCalendar } from "@/features/calendar/components/day-calendar";
 import { EventForm } from "@/features/calendar/components/event-form";
-import { formatDateValue, getEventsForDay } from "@/features/calendar/queries";
+import { formatDateValue, getEventsForDayResult } from "@/features/calendar/queries";
 import { getClients } from "@/features/clients/queries";
 
 type CalendarPageProps = {
@@ -14,8 +14,8 @@ type CalendarPageProps = {
 
 export default async function CalendarPage({ searchParams }: CalendarPageProps) {
   const date = searchParams?.date || formatDateValue(new Date());
-  const [events, clients] = await Promise.all([
-    getEventsForDay(date),
+  const [eventsResult, clients] = await Promise.all([
+    getEventsForDayResult(date),
     getClients()
   ]);
 
@@ -27,7 +27,7 @@ export default async function CalendarPage({ searchParams }: CalendarPageProps) 
       />
       <FormError message={searchParams?.error} />
       <EventForm clients={clients} />
-      <DayCalendar events={events} />
+      <DayCalendar events={eventsResult.events} error={eventsResult.error} />
     </div>
   );
 }

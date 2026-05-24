@@ -1,10 +1,16 @@
 import { createClient } from "@/lib/supabase/server";
 import { getTrainerProfile } from "@/features/trainer/queries";
 import type { Tables } from "@/lib/database.types";
+import { getReadableErrorMessage, retryResultOnTransientError } from "@/lib/errors";
 
 export type CalendarEventRow = Tables<"calendar_events">;
 export type CalendarEventWithClient = CalendarEventRow & {
   clients: Pick<Tables<"clients">, "id" | "name" | "preferred_name"> | null;
+};
+
+export type CalendarEventsResult = {
+  events: CalendarEventWithClient[];
+  error: string | null;
 };
 
 export function formatDateValue(date: Date) {
@@ -32,26 +38,55 @@ export function getEventDateRange(dateValue: string, timezone = "Europe/Moscow")
 }
 
 export async function getEventsForDay(dateValue = formatDateValue(new Date())): Promise<CalendarEventWithClient[]> {
-  const profile = await getTrainerProfile();
-  const timezone = profile?.timezone || "Europe/Moscow";
-  const range = getEventDateRange(dateValue, timezone);
-  const supabase = createClient();
-  const { data, error } = await supabase
-    .from("calendar_events")
-    .select("*, clients(id, name, preferred_name)")
-    .gte("starts_at", range.startsAt)
-    .lt("starts_at", range.endsAt)
-    .order("starts_at", { ascending: true });
+  const result = await getEventsForDayResult(dateValue);
 
-  if (error) {
-    throw new Error(error.message);
+  if (result.error) {
+    throw new Error(result.error);
   }
 
-  return (data ?? []) as CalendarEventWithClient[];
+  return result.events;
+}
+
+export async function getEventsForDayResult(dateValue = formatDateValue(new Date())): Promise<CalendarEventsResult> {
+  try {
+    const profile = await getTrainerProfile();
+    const timezone = profile?.timezone || "Europe/Moscow";
+    const range = getEventDateRange(dateValue, timezone);
+    const supabase = createClient();
+    const { data, error } = await retryResultOnTransientError(() =>
+      supabase
+        .from("calendar_events")
+        .select("*, clients(id, name, preferred_name)")
+        .gte("starts_at", range.startsAt)
+        .lt("starts_at", range.endsAt)
+        .order("starts_at", { ascending: true })
+    );
+
+    if (error) {
+      return {
+        events: [],
+        error: getReadableErrorMessage(error, "Не удалось загрузить события. Обновите страницу или попробуйте позже.")
+      };
+    }
+
+    return {
+      events: (data ?? []) as CalendarEventWithClient[],
+      error: null
+    };
+  } catch (error) {
+    return {
+      events: [],
+      error: getReadableErrorMessage(error, "Не удалось загрузить события. Обновите страницу или попробуйте позже.")
+    };
+  }
 }
 
 export async function getTodayEvents() {
   return getEventsForDay(formatDateValue(new Date()));
+}
+
+export async function getTodayEventsResult() {
+  return getEventsForDayResult(formatDateValue(new Date()));
 }
 
 export async function getCalendarEventById(eventId: string): Promise<CalendarEventWithClient | null> {
