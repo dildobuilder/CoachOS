@@ -1,13 +1,21 @@
 import Link from "next/link";
+import { FormError } from "@/components/feedback/form-error";
 import { PageHeader } from "@/components/layout/page-header";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { TodayEventsList } from "@/features/calendar/components/today-events-list";
-import { getTodayEventsResult } from "@/features/calendar/queries";
+import { getCalendarStartDate, getEventsForDayResult } from "@/features/calendar/queries";
 import { getClients } from "@/features/clients/queries";
 
-export default async function DashboardPage() {
-  const [clients, eventsResult] = await Promise.all([getClients(), getTodayEventsResult()]);
+type DashboardPageProps = {
+  searchParams?: {
+    error?: string;
+  };
+};
+
+export default async function DashboardPage({ searchParams }: DashboardPageProps) {
+  const { startDate, timezone } = await getCalendarStartDate();
+  const [clients, eventsResult] = await Promise.all([getClients(), getEventsForDayResult(startDate)]);
   const today = new Intl.DateTimeFormat("ru-RU", {
     weekday: "long",
     day: "2-digit",
@@ -17,8 +25,9 @@ export default async function DashboardPage() {
   return (
     <div className="space-y-6">
       <PageHeader title="Сегодня" description={`${today}. События и клиентская база тренера.`} />
+      <FormError message={searchParams?.error} />
       <div className="grid gap-4 md:grid-cols-[320px_1fr]">
-        <Card>
+        <Card className="self-start">
           <CardHeader>
             <CardTitle>Клиенты</CardTitle>
           </CardHeader>
@@ -39,7 +48,13 @@ export default async function DashboardPage() {
               <Link href="/calendar">Календарь</Link>
             </Button>
           </div>
-          <TodayEventsList events={eventsResult.events} error={eventsResult.error} />
+          <TodayEventsList
+            events={eventsResult.events}
+            error={eventsResult.error}
+            clients={clients}
+            startDate={startDate}
+            timezone={timezone}
+          />
         </div>
       </div>
     </div>

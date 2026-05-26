@@ -1,21 +1,20 @@
 import { FormError } from "@/components/feedback/form-error";
 import { PageHeader } from "@/components/layout/page-header";
-import { DayCalendar } from "@/features/calendar/components/day-calendar";
-import { EventForm } from "@/features/calendar/components/event-form";
-import { formatDateValue, getEventsForDayResult } from "@/features/calendar/queries";
+import { CalendarToolbar } from "@/features/calendar/components/calendar-toolbar";
+import { WeeklyCalendar } from "@/features/calendar/components/weekly-calendar";
+import { getEventsForWeekResult } from "@/features/calendar/queries";
 import { getClients } from "@/features/clients/queries";
 
 type CalendarPageProps = {
   searchParams?: {
-    date?: string;
+    start?: string;
     error?: string;
   };
 };
 
 export default async function CalendarPage({ searchParams }: CalendarPageProps) {
-  const date = searchParams?.date || formatDateValue(new Date());
   const [eventsResult, clients] = await Promise.all([
-    getEventsForDayResult(date),
+    getEventsForWeekResult(searchParams?.start),
     getClients()
   ]);
 
@@ -23,11 +22,17 @@ export default async function CalendarPage({ searchParams }: CalendarPageProps) 
     <div className="space-y-6">
       <PageHeader
         title="Календарь"
-        description="Простой день: создайте тренировку клиента и запустите сессию."
+        description="Недельная сетка тренера: планируйте события, проверяйте занятость и запускайте тренировки."
       />
       <FormError message={searchParams?.error} />
-      <EventForm clients={clients} />
-      <DayCalendar events={eventsResult.events} error={eventsResult.error} />
+      <CalendarToolbar startDate={eventsResult.startDate} timezone={eventsResult.timezone} />
+      <WeeklyCalendar
+        events={eventsResult.events}
+        clients={clients}
+        startDate={eventsResult.startDate}
+        timezone={eventsResult.timezone}
+        error={eventsResult.error}
+      />
     </div>
   );
 }

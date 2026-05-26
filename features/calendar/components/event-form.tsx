@@ -20,6 +20,7 @@ export function EventForm({ clients }: EventFormProps) {
       </CardHeader>
       <CardContent>
         <form action={createCalendarEvent} className="grid gap-4">
+          <input type="hidden" name="type" value="client_training" />
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2">
               <Label htmlFor="client_id">Клиент</Label>
@@ -48,13 +49,12 @@ export function EventForm({ clients }: EventFormProps) {
                 <Input id="starts_at_time" name="starts_at_time" type="time" required defaultValue="10:00" />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="duration_minutes">Минуты</Label>
-                <Select id="duration_minutes" name="duration_minutes" defaultValue="60">
-                  <option value="45">45</option>
-                  <option value="60">60</option>
-                  <option value="75">75</option>
-                  <option value="90">90</option>
-                  <option value="120">120</option>
+                <Label htmlFor="duration_hours">Часы</Label>
+                <Select id="duration_hours" name="duration_hours" defaultValue="1">
+                  <option value="1">1</option>
+                  <option value="2">2</option>
+                  <option value="3">3</option>
+                  <option value="4">4</option>
                 </Select>
               </div>
             </div>
