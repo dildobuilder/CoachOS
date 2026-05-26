@@ -1,16 +1,17 @@
 import Link from "next/link";
-import { Dumbbell, LayoutDashboard, Users } from "lucide-react";
+import { CalendarDays, Dumbbell, LayoutDashboard, Users } from "lucide-react";
 import { signOut } from "@/features/auth/actions";
 import { Button } from "@/components/ui/button";
 
 const navItems = [
   { href: "/dashboard", label: "Сегодня", icon: LayoutDashboard },
+  { href: "/calendar", label: "Календарь", icon: CalendarDays },
   { href: "/clients", label: "Клиенты", icon: Users }
 ];
 
 export function ProtectedNav() {
   return (
-    <header className="sticky top-0 z-20 border-b bg-background/95 backdrop-blur">
+    <header className="sticky top-0 z-50 border-b bg-background/95 backdrop-blur">
       <div className="mx-auto flex h-14 max-w-6xl items-center justify-between px-4">
         <Link href="/dashboard" className="flex items-center gap-2 font-semibold">
           <Dumbbell className="h-5 w-5 text-primary" />

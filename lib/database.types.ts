@@ -121,7 +121,7 @@ export type Database = {
           id: string;
           trainer_id: string;
           client_id: string | null;
-          type: "client_training" | "personal" | "other";
+          type: "client_training" | "personal" | "break" | "other";
           title: string;
           starts_at: string;
           ends_at: string;
@@ -134,7 +134,7 @@ export type Database = {
           id?: string;
           trainer_id: string;
           client_id?: string | null;
-          type: "client_training" | "personal" | "other";
+          type: "client_training" | "personal" | "break" | "other";
           title: string;
           starts_at: string;
           ends_at: string;
@@ -147,7 +147,7 @@ export type Database = {
           id?: string;
           trainer_id?: string;
           client_id?: string | null;
-          type?: "client_training" | "personal" | "other";
+          type?: "client_training" | "personal" | "break" | "other";
           title?: string;
           starts_at?: string;
           ends_at?: string;

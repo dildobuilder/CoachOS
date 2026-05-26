@@ -1,15 +1,16 @@
 import Link from "next/link";
-import { LayoutDashboard, Users } from "lucide-react";
+import { CalendarDays, LayoutDashboard, Users } from "lucide-react";
 
 const navItems = [
   { href: "/dashboard", label: "Сегодня", icon: LayoutDashboard },
+  { href: "/calendar", label: "Календарь", icon: CalendarDays },
   { href: "/clients", label: "Клиенты", icon: Users }
 ];
 
 export function MobileBottomNav() {
   return (
-    <nav className="fixed inset-x-0 bottom-0 z-20 border-t bg-background sm:hidden">
-      <div className="grid h-16 grid-cols-2">
+    <nav className="fixed inset-x-0 bottom-0 z-50 border-t bg-background sm:hidden">
+      <div className="grid h-16 grid-cols-3">
         {navItems.map((item) => (
           <Link
             key={item.href}

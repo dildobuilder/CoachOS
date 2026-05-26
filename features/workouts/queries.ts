@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import type { Tables } from "@/lib/database.types";
+import { getReadableErrorMessage, retryResultOnTransientError } from "@/lib/errors";
 
 export type WorkoutSessionRow = Tables<"workout_sessions">;
 export type SessionExerciseRow = Tables<"session_exercises">;
@@ -20,40 +21,79 @@ export type WorkoutSessionDetail = {
   exercises: SessionExerciseWithSets[];
 };
 
-export async function getWorkoutSessionById(sessionId: string): Promise<WorkoutSessionDetail> {
-  const supabase = createClient();
-  const { data: session, error } = await supabase
-    .from("workout_sessions")
-    .select("*, clients(id, name, preferred_name), calendar_events(id, title, starts_at)")
-    .eq("id", sessionId)
-    .maybeSingle();
+export type WorkoutSessionDetailResult = {
+  detail: WorkoutSessionDetail | null;
+  error: string | null;
+};
 
-  if (error) {
-    throw new Error(error.message);
+export async function getWorkoutSessionById(sessionId: string): Promise<WorkoutSessionDetail> {
+  const result = await getWorkoutSessionResult(sessionId);
+
+  if (result.error) {
+    throw new Error(result.error);
   }
 
-  if (!session) {
+  if (!result.detail) {
     notFound();
   }
 
-  const exercises = await getSessionExercises(sessionId);
+  return result.detail;
+}
 
-  return {
-    session: session as WorkoutSessionWithClient,
-    exercises
-  };
+export async function getWorkoutSessionResult(sessionId: string): Promise<WorkoutSessionDetailResult> {
+  try {
+    const supabase = createClient();
+    const { data: session, error } = await retryResultOnTransientError(() =>
+      supabase
+        .from("workout_sessions")
+        .select("*, clients(id, name, preferred_name), calendar_events(id, title, starts_at)")
+        .eq("id", sessionId)
+        .maybeSingle()
+    );
+
+    if (error) {
+      return {
+        detail: null,
+        error: getReadableErrorMessage(error, "Не удалось загрузить тренировку. Обновите страницу или попробуйте позже.")
+      };
+    }
+
+    if (!session) {
+      return {
+        detail: null,
+        error: null
+      };
+    }
+
+    const exercises = await getSessionExercises(sessionId);
+
+    return {
+      detail: {
+        session: session as WorkoutSessionWithClient,
+        exercises
+      },
+      error: null
+    };
+  } catch (error) {
+    return {
+      detail: null,
+      error: getReadableErrorMessage(error, "Не удалось загрузить тренировку. Обновите страницу или попробуйте позже.")
+    };
+  }
 }
 
 export async function getSessionExercises(sessionId: string): Promise<SessionExerciseWithSets[]> {
   const supabase = createClient();
-  const { data: exercises, error } = await supabase
-    .from("session_exercises")
-    .select("*")
-    .eq("session_id", sessionId)
-    .order("position", { ascending: true });
+  const { data: exercises, error } = await retryResultOnTransientError(() =>
+    supabase
+      .from("session_exercises")
+      .select("*")
+      .eq("session_id", sessionId)
+      .order("position", { ascending: true })
+  );
 
   if (error) {
-    throw new Error(error.message);
+    throw new Error(getReadableErrorMessage(error, "Не удалось загрузить упражнения."));
   }
 
   const exerciseRows = exercises ?? [];
@@ -63,14 +103,16 @@ export async function getSessionExercises(sessionId: string): Promise<SessionExe
   }
 
   const exerciseIds = exerciseRows.map((exercise) => exercise.id);
-  const { data: sets, error: setsError } = await supabase
-    .from("session_sets")
-    .select("*")
-    .in("session_exercise_id", exerciseIds)
-    .order("position", { ascending: true });
+  const { data: sets, error: setsError } = await retryResultOnTransientError(() =>
+    supabase
+      .from("session_sets")
+      .select("*")
+      .in("session_exercise_id", exerciseIds)
+      .order("position", { ascending: true })
+  );
 
   if (setsError) {
-    throw new Error(setsError.message);
+    throw new Error(getReadableErrorMessage(setsError, "Не удалось загрузить подходы."));
   }
 
   return exerciseRows.map((exercise) => ({
@@ -81,15 +123,17 @@ export async function getSessionExercises(sessionId: string): Promise<SessionExe
 
 export async function getClientSessionHistory(clientId: string): Promise<WorkoutSessionDetail[]> {
   const supabase = createClient();
-  const { data: sessions, error } = await supabase
-    .from("workout_sessions")
-    .select("*, clients(id, name, preferred_name), calendar_events(id, title, starts_at)")
-    .eq("client_id", clientId)
-    .eq("status", "completed")
-    .order("completed_at", { ascending: false });
+  const { data: sessions, error } = await retryResultOnTransientError(() =>
+    supabase
+      .from("workout_sessions")
+      .select("*, clients(id, name, preferred_name), calendar_events(id, title, starts_at)")
+      .eq("client_id", clientId)
+      .eq("status", "completed")
+      .order("completed_at", { ascending: false })
+  );
 
   if (error) {
-    throw new Error(error.message);
+    throw new Error(getReadableErrorMessage(error, "Не удалось загрузить историю тренировок."));
   }
 
   const details = await Promise.all(
