@@ -159,6 +159,9 @@ export function EventDialog({
               {event?.type === "client_training" && event.status === "scheduled" ? (
                 <StartWorkoutButton eventId={event.id} status={event.status} labelOverride="Начать" />
               ) : null}
+              {event?.type === "client_training" && event.status === "started" ? (
+                <StartWorkoutButton eventId={event.id} status={event.status} labelOverride="Продолжить" />
+              ) : null}
             </div>
             <div className="flex justify-end gap-2">
               <Button type="button" variant="outline" onClick={onClose}>

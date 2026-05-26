@@ -1,4 +1,5 @@
 import { Select } from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
 import type { IntensityType } from "@/features/workouts/schemas";
 
 type IntensityValueInputProps = {
@@ -13,6 +14,20 @@ const percentValues = Array.from({ length: 101 }, (_, index) => index);
 export function IntensityValueInput({ type, defaultValue }: IntensityValueInputProps) {
   if (type === "none") {
     return <input type="hidden" name="intensity_value" value="" />;
+  }
+
+  if (type === "time") {
+    return (
+      <Input
+        name="intensity_value"
+        type="number"
+        inputMode="numeric"
+        step="1"
+        min="1"
+        defaultValue={defaultValue ?? ""}
+        placeholder="60 сек"
+      />
+    );
   }
 
   const options =

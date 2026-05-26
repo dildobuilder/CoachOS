@@ -53,5 +53,9 @@ function getIntensityLabel(type: IntensityType) {
     return "%";
   }
 
+  if (type === "time") {
+    return "Время, сек";
+  }
+
   return "Оценка";
 }

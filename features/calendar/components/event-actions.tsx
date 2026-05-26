@@ -21,6 +21,10 @@ export function EventActions({ event, onEdit, compact = false }: EventActionsPro
     event.status !== "scheduled";
   const canStart = event.type === "client_training" && event.status === "scheduled";
   const canCancel = event.status !== "cancelled" && event.status !== "completed";
+  const compactOpenClassName =
+    event.status === "started"
+      ? "h-12 w-12 shrink-0 rounded-md bg-amber-400 p-0 text-amber-950 hover:bg-amber-500"
+      : "h-12 w-12 shrink-0 rounded-md bg-primary p-0 text-primary-foreground hover:bg-primary/90";
 
   return (
     <div className="flex flex-wrap items-center gap-2">
@@ -29,18 +33,18 @@ export function EventActions({ event, onEdit, compact = false }: EventActionsPro
           asChild
           size={compact ? "icon" : "sm"}
           variant="outline"
-          className={compact ? "h-12 w-12 shrink-0 rounded-md bg-primary p-0 text-primary-foreground hover:bg-primary/90" : undefined}
+          className={compact ? compactOpenClassName : undefined}
         >
           <Link href={`/sessions/${event.existing_session_id}`}>
             {compact ? (
               <>
                 <Play className="h-6 w-6" />
-                <span className="sr-only">Открыть</span>
+                <span className="sr-only">{event.status === "started" ? "Продолжить" : "Открыть"}</span>
               </>
             ) : event.status === "completed" ? (
               "Открыть итог"
             ) : (
-              "Открыть тренировку"
+              "Продолжить"
             )}
           </Link>
         </Button>

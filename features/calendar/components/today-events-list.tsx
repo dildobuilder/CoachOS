@@ -62,7 +62,7 @@ export function TodayEventsList({
                 </p>
               </div>
               <div className="flex shrink-0 items-center gap-2">
-                {event.type === "client_training" && event.status === "scheduled" ? (
+                {event.type === "client_training" && (event.status === "scheduled" || event.status === "started") ? (
                   <StartWorkoutButton eventId={event.id} status={event.status} compact compactSize="sm" />
                 ) : null}
                 <Button type="button" variant="outline" size="sm" onClick={() => setSelectedEvent(event)}>

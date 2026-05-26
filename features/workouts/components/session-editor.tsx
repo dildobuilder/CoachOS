@@ -2,7 +2,8 @@ import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { AddExerciseForm } from "@/features/workouts/components/add-exercise-form";
+import { AddExerciseFromLibrary } from "@/features/exercises/components/add-exercise-from-library";
+import { getAvailableExercises, getExerciseCategories } from "@/features/exercises/queries";
 import { CompleteSessionButton } from "@/features/workouts/components/complete-session-button";
 import { PreviousWorkoutPlaceholder } from "@/features/workouts/components/previous-workout-placeholder";
 import { SessionExerciseCard } from "@/features/workouts/components/session-exercise-card";
@@ -13,9 +14,12 @@ type SessionEditorProps = {
   previousWorkout: WorkoutSessionDetail | null;
 };
 
-export function SessionEditor({ detail, previousWorkout }: SessionEditorProps) {
+export async function SessionEditor({ detail, previousWorkout }: SessionEditorProps) {
   const isReadonly = detail.session.status === "completed";
   const clientName = detail.session.clients?.preferred_name || detail.session.clients?.name || "Клиент";
+  const [exerciseLibrary, exerciseCategories] = !isReadonly
+    ? await Promise.all([getAvailableExercises(), getExerciseCategories()])
+    : [[], []];
 
   return (
     <div className="space-y-6">
@@ -41,7 +45,13 @@ export function SessionEditor({ detail, previousWorkout }: SessionEditorProps) {
 
       {!isReadonly ? <PreviousWorkoutPlaceholder workout={previousWorkout} /> : null}
 
-      {!isReadonly ? <AddExerciseForm sessionId={detail.session.id} /> : null}
+      {!isReadonly ? (
+        <AddExerciseFromLibrary
+          sessionId={detail.session.id}
+          exercises={exerciseLibrary}
+          categories={exerciseCategories}
+        />
+      ) : null}
 
       <div className="space-y-4">
         {detail.exercises.map((exercise) => (

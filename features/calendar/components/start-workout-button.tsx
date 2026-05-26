@@ -5,9 +5,11 @@ import { useFormStatus } from "react-dom";
 import { Button } from "@/components/ui/button";
 import { startWorkoutFromEvent } from "@/features/calendar/actions";
 
+type WorkoutEventStatus = "scheduled" | "started" | "completed" | "cancelled";
+
 type StartWorkoutButtonProps = {
   eventId: string;
-  status: "scheduled" | "started" | "completed" | "cancelled";
+  status: WorkoutEventStatus;
   compact?: boolean;
   compactSize?: "sm" | "lg";
   labelOverride?: string;
@@ -22,7 +24,7 @@ export function StartWorkoutButton({
 }: StartWorkoutButtonProps) {
   const label =
     labelOverride ||
-    (status === "started" ? "Открыть тренировку" : status === "completed" ? "Открыть итог" : "Начать");
+    (status === "started" ? "Продолжить" : status === "completed" ? "Открыть итог" : "Начать");
 
   if (status === "cancelled") {
     return null;
@@ -30,28 +32,26 @@ export function StartWorkoutButton({
 
   return (
     <form action={startWorkoutFromEvent.bind(null, eventId)}>
-      <StartWorkoutSubmitButton
-        label={label}
-        variant={status === "scheduled" ? "default" : "outline"}
-        compact={compact}
-        compactSize={compactSize}
-      />
+      <StartWorkoutSubmitButton label={label} status={status} compact={compact} compactSize={compactSize} />
     </form>
   );
 }
 
 function StartWorkoutSubmitButton({
   label,
-  variant,
+  status,
   compact,
   compactSize
 }: {
   label: string;
-  variant: "default" | "outline";
+  status: Exclude<WorkoutEventStatus, "cancelled">;
   compact: boolean;
   compactSize: "sm" | "lg";
 }) {
   const { pending } = useFormStatus();
+  const isStarted = status === "started";
+  const variant = status === "completed" ? "outline" : "default";
+  const colorClassName = isStarted ? "bg-amber-400 text-amber-950 hover:bg-amber-500" : undefined;
 
   if (compact) {
     const buttonSize = compactSize === "sm" ? "h-9 w-9" : "h-12 w-12";
@@ -62,7 +62,7 @@ function StartWorkoutSubmitButton({
         type="submit"
         variant={variant}
         disabled={pending}
-        className={`${buttonSize} shrink-0 rounded-md p-0`}
+        className={`${buttonSize} shrink-0 rounded-md p-0 ${colorClassName ?? ""}`}
         aria-label={label}
         title={label}
       >
@@ -73,7 +73,7 @@ function StartWorkoutSubmitButton({
   }
 
   return (
-    <Button type="submit" size="sm" variant={variant} disabled={pending}>
+    <Button type="submit" size="sm" variant={variant} disabled={pending} className={colorClassName}>
       <Play className="h-4 w-4" />
       {pending ? "Открываем..." : label}
     </Button>

@@ -14,6 +14,7 @@ export type WorkoutSessionWithClient = WorkoutSessionRow & {
 
 export type SessionExerciseWithSets = SessionExerciseRow & {
   session_sets: SessionSetRow[];
+  exercises: Pick<Tables<"exercises">, "primary_category" | "agonists" | "synergists" | "antagonists"> | null;
 };
 
 export type WorkoutSessionDetail = {
@@ -87,7 +88,7 @@ export async function getSessionExercises(sessionId: string): Promise<SessionExe
   const { data: exercises, error } = await retryResultOnTransientError(() =>
     supabase
       .from("session_exercises")
-      .select("*")
+      .select("*, exercises(primary_category, agonists, synergists, antagonists)")
       .eq("session_id", sessionId)
       .order("position", { ascending: true })
   );

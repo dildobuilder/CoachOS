@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-export const intensityTypeSchema = z.enum(["none", "rpe", "rir", "percent"]);
+export const intensityTypeSchema = z.enum(["none", "rpe", "rir", "percent", "time"]);
 
 const optionalText = z
   .string()
@@ -65,6 +65,10 @@ export function validateIntensityValue(type: IntensityType, value: number | null
 
   if (type === "percent" && (!Number.isInteger(value) || value < 0 || value > 100)) {
     throw new Error("Процент должен быть целым числом от 0 до 100");
+  }
+
+  if (type === "time" && (!Number.isInteger(value) || value <= 0)) {
+    throw new Error("Время должно быть положительным целым числом секунд");
   }
 
   return value;

@@ -66,7 +66,9 @@ export async function addExerciseToSession(sessionId: string, formData: FormData
   const exerciseInsert: TablesInsert<"session_exercises"> = {
     session_id: sessionId,
     trainer_id: trainerId,
+    exercise_id: null,
     name: parsed.data.name,
+    name_snapshot: parsed.data.name,
     intensity_type: parsed.data.intensity_type,
     notes: parsed.data.notes,
     position: nextPosition
@@ -93,11 +95,50 @@ export async function updateSessionExercise(sessionId: string, exerciseId: strin
   }
 
   await ensureSessionIsStarted(exercise.session_id);
+
+  if (exercise.exercise_id) {
+    redirect(`/sessions/${exercise.session_id}?error=${encodeURIComponent("Упражнение из базы нельзя редактировать в тренировке")}`);
+  }
+
   const supabase = createSupabaseClient();
   const exerciseUpdate: TablesUpdate<"session_exercises"> = {
     name: parsed.data.name,
+    name_snapshot: parsed.data.name,
     intensity_type: parsed.data.intensity_type,
     notes: parsed.data.notes
+  };
+  const { error } = await supabase.from("session_exercises").update(exerciseUpdate).eq("id", exerciseId);
+
+  if (error) {
+    redirect(`/sessions/${exercise.session_id}?error=${encodeURIComponent(error.message)}`);
+  }
+
+  revalidatePath(`/sessions/${exercise.session_id}`);
+  } catch (error) {
+    redirectActionError(error, `/sessions/${sessionId}`);
+  }
+}
+
+export async function updateSessionExerciseIntensity(sessionId: string, exerciseId: string, formData: FormData) {
+  try {
+  const parsed = exerciseSchema.pick({ intensity_type: true }).safeParse({
+    intensity_type: formData.get("intensity_type") || "none"
+  });
+  const exercise = await getExerciseById(exerciseId);
+
+  if (!parsed.success) {
+    redirect(`/sessions/${exercise.session_id}?error=${encodeURIComponent(parsed.error.issues[0]?.message ?? "Ошибка")}`);
+  }
+
+  await ensureSessionIsStarted(exercise.session_id);
+
+  if (!exercise.exercise_id) {
+    redirect(`/sessions/${exercise.session_id}?error=${encodeURIComponent("Ручное упражнение редактируется через основную форму")}`);
+  }
+
+  const supabase = createSupabaseClient();
+  const exerciseUpdate: TablesUpdate<"session_exercises"> = {
+    intensity_type: parsed.data.intensity_type
   };
   const { error } = await supabase.from("session_exercises").update(exerciseUpdate).eq("id", exerciseId);
 

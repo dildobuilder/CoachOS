@@ -12,6 +12,7 @@ export function IntensityTypeSelector({ defaultValue = "none" }: IntensityTypeSe
       <option value="rpe">RPE</option>
       <option value="rir">RIR</option>
       <option value="percent">%</option>
+      <option value="time">Время</option>
     </Select>
   );
 }

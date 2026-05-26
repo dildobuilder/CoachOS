@@ -173,6 +173,74 @@ export type Database = {
           }
         ];
       };
+      exercises: {
+        Row: {
+          id: string;
+          trainer_id: string | null;
+          source_type: "system" | "custom";
+          exercise_key: string | null;
+          name: string;
+          primary_category: string;
+          secondary_categories: string[];
+          agonists: string[];
+          synergists: string[];
+          antagonists: string[];
+          equipment: string | null;
+          movement_pattern: string | null;
+          default_intensity_type: "none" | "rpe" | "rir" | "percent" | "time";
+          short_description: string | null;
+          status: "active" | "archived";
+          created_at: string;
+          updated_at: string;
+        } & Record<string, unknown>;
+        Insert: {
+          id?: string;
+          trainer_id?: string | null;
+          source_type: "system" | "custom";
+          exercise_key?: string | null;
+          name: string;
+          primary_category: string;
+          secondary_categories?: string[];
+          agonists?: string[];
+          synergists?: string[];
+          antagonists?: string[];
+          equipment?: string | null;
+          movement_pattern?: string | null;
+          default_intensity_type?: "none" | "rpe" | "rir" | "percent" | "time";
+          short_description?: string | null;
+          status?: "active" | "archived";
+          created_at?: string;
+          updated_at?: string;
+        } & Record<string, unknown>;
+        Update: {
+          id?: string;
+          trainer_id?: string | null;
+          source_type?: "system" | "custom";
+          exercise_key?: string | null;
+          name?: string;
+          primary_category?: string;
+          secondary_categories?: string[];
+          agonists?: string[];
+          synergists?: string[];
+          antagonists?: string[];
+          equipment?: string | null;
+          movement_pattern?: string | null;
+          default_intensity_type?: "none" | "rpe" | "rir" | "percent" | "time";
+          short_description?: string | null;
+          status?: "active" | "archived";
+          created_at?: string;
+          updated_at?: string;
+        } & Record<string, unknown>;
+        Relationships: [
+          {
+            foreignKeyName: "exercises_trainer_id_fkey";
+            columns: ["trainer_id"];
+            isOneToOne: false;
+            referencedRelation: "trainer_profiles";
+            referencedColumns: ["id"];
+          }
+        ];
+      };
       workout_sessions: {
         Row: {
           id: string;
@@ -242,9 +310,11 @@ export type Database = {
           id: string;
           session_id: string;
           trainer_id: string;
+          exercise_id: string | null;
           name: string;
+          name_snapshot: string;
           position: number;
-          intensity_type: "none" | "rpe" | "rir" | "percent";
+          intensity_type: "none" | "rpe" | "rir" | "percent" | "time";
           notes: string | null;
           created_at: string;
           updated_at: string;
@@ -253,9 +323,11 @@ export type Database = {
           id?: string;
           session_id: string;
           trainer_id: string;
+          exercise_id?: string | null;
           name: string;
+          name_snapshot: string;
           position?: number;
-          intensity_type?: "none" | "rpe" | "rir" | "percent";
+          intensity_type?: "none" | "rpe" | "rir" | "percent" | "time";
           notes?: string | null;
           created_at?: string;
           updated_at?: string;
@@ -264,14 +336,23 @@ export type Database = {
           id?: string;
           session_id?: string;
           trainer_id?: string;
+          exercise_id?: string | null;
           name?: string;
+          name_snapshot?: string;
           position?: number;
-          intensity_type?: "none" | "rpe" | "rir" | "percent";
+          intensity_type?: "none" | "rpe" | "rir" | "percent" | "time";
           notes?: string | null;
           created_at?: string;
           updated_at?: string;
         } & Record<string, unknown>;
         Relationships: [
+          {
+            foreignKeyName: "session_exercises_exercise_id_fkey";
+            columns: ["exercise_id"];
+            isOneToOne: false;
+            referencedRelation: "exercises";
+            referencedColumns: ["id"];
+          },
           {
             foreignKeyName: "session_exercises_session_id_fkey";
             columns: ["session_id"];
