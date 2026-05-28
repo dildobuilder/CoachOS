@@ -40,12 +40,12 @@ export function WeeklyCalendar({ events, clients, startDate, timezone, error }: 
         </div>
       ) : null}
 
-      <div className="relative overflow-x-auto rounded-lg border bg-card">
+      <div className="relative overflow-x-auto rounded-lg border bg-card [--day-col:96px] [--header-row:40px] [--hour-row:52px] [--time-col:56px] sm:[--day-col:minmax(132px,1fr)] sm:[--header-row:44px] sm:[--hour-row:64px] sm:[--time-col:72px]">
         <div
-          className="grid min-w-[1040px]"
+          className="grid min-w-[728px] sm:min-w-[1040px]"
           style={{
-            gridTemplateColumns: "72px repeat(7, minmax(132px, 1fr))",
-            gridTemplateRows: "44px repeat(24, 64px)"
+            gridTemplateColumns: "var(--time-col) repeat(7, var(--day-col))",
+            gridTemplateRows: "var(--header-row) repeat(24, var(--hour-row))"
           }}
         >
           <div className="sticky left-0 top-0 z-30 border-b border-r bg-card" />
@@ -53,12 +53,12 @@ export function WeeklyCalendar({ events, clients, startDate, timezone, error }: 
             <div
               key={day}
               className={cn(
-                "sticky top-0 z-30 flex flex-col justify-center border-b border-r bg-card px-3",
+                "sticky top-0 z-30 flex flex-col justify-center border-b border-r bg-card px-2 sm:px-3",
                 day === today && "bg-emerald-50"
               )}
               style={{ gridColumn: index + 2, gridRow: 1 }}
             >
-              <span className="text-sm font-semibold">{formatWeekday(day)}</span>
+              <span className="text-xs font-semibold sm:text-sm">{formatWeekday(day)}</span>
               <span className="text-xs text-muted-foreground">{formatDay(day)}</span>
             </div>
           ))}
@@ -66,7 +66,7 @@ export function WeeklyCalendar({ events, clients, startDate, timezone, error }: 
           {hours.map((hour) => (
             <div
               key={hour}
-              className="sticky left-0 z-20 flex justify-end border-b border-r bg-card px-2 pt-2 text-xs text-muted-foreground"
+              className="sticky left-0 z-20 flex justify-end border-b border-r bg-card px-1.5 pt-1.5 text-xs text-muted-foreground sm:px-2 sm:pt-2"
               style={{ gridColumn: 1, gridRow: hour + 2 }}
             >
               {String(hour).padStart(2, "0")}:00
@@ -94,7 +94,7 @@ export function WeeklyCalendar({ events, clients, startDate, timezone, error }: 
           {placements.map(({ event, dayIndex, hour, duration }) => (
             <div
               key={event.id}
-              className="z-10 p-1"
+              className="z-10 p-0.5 sm:p-1"
               style={{
                 gridColumn: dayIndex + 2,
                 gridRow: `${hour + 2} / span ${duration}`

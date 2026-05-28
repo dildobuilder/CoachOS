@@ -52,15 +52,17 @@ export function EventCard({ event, compact = false, onEdit }: EventCardProps) {
     return (
       <div
         className={cn(
-          "relative h-full min-h-0 overflow-hidden rounded-md border p-1.5 text-xs shadow-sm",
-          event.type === "client_training" && "pr-14",
+          "relative h-full min-h-0 overflow-hidden rounded-md border p-1 text-[11px] shadow-sm sm:p-1.5 sm:text-xs",
+          event.type === "client_training" && "pr-11 sm:pr-14",
           typeClasses[event.type],
           event.status === "cancelled" && "opacity-55"
         )}
       >
         <button type="button" className="block max-w-full text-left" onClick={onEdit}>
-          <div className="line-clamp-2 text-sm font-semibold leading-[1.05]">{shortTitle}</div>
-          <div className="mt-0.5 whitespace-pre-line text-sm leading-[1.15]">
+          <div className="line-clamp-2 text-xs font-semibold leading-[1.02] sm:text-sm sm:leading-[1.05]">
+            {shortTitle}
+          </div>
+          <div className="mt-0.5 whitespace-pre-line text-xs leading-[1.08] sm:text-sm sm:leading-[1.15]">
             {formatTime(startsAt)}-
             {"\n"}
             {formatTime(endsAt)}

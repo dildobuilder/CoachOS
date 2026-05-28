@@ -1,7 +1,7 @@
 "use client";
 
 import { X } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { SubmitButton } from "@/components/forms/submit-button";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -50,10 +50,19 @@ export function EventDialog({
   const action = event ? updateCalendarEvent.bind(null, event.id) : createCalendarEvent;
   const title = event ? "Событие" : "Новое событие";
 
+  useEffect(() => {
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, []);
+
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center bg-foreground/20 px-4 py-8">
-      <div className="w-full max-w-xl rounded-lg border bg-background shadow-xl">
-        <div className="flex items-center justify-between border-b p-4">
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-foreground/20 px-3 py-2 sm:px-4 sm:py-6">
+      <div className="flex max-h-[92dvh] w-full max-w-lg flex-col overflow-hidden rounded-lg border bg-background shadow-xl sm:max-h-[90dvh]">
+        <div className="flex shrink-0 items-center justify-between border-b px-4 py-2.5 sm:py-3">
           <div>
             <h2 className="text-lg font-semibold">{title}</h2>
             <p className="text-sm text-muted-foreground">Заполните детали календаря тренера.</p>
@@ -63,98 +72,101 @@ export function EventDialog({
           </Button>
         </div>
 
-        <form action={action} className="grid gap-4 p-4">
+        <form action={action} className="flex min-h-0 flex-1 flex-col">
           <input type="hidden" name="return_to_start" value={startDate} />
           {returnToPath ? <input type="hidden" name="return_to_path" value={returnToPath} /> : null}
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-2">
-              <Label htmlFor="type">Тип</Label>
-              <Select
-                id="type"
-                name="type"
-                value={type}
-                onChange={(event) => setType(event.target.value as CalendarEventType)}
-              >
-                {Object.entries(eventTypeLabels).map(([value, label]) => (
-                  <option key={value} value={value}>
-                    {label}
-                  </option>
-                ))}
-              </Select>
-            </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="duration_hours">Длительность</Label>
-              <Select id="duration_hours" name="duration_hours" defaultValue={String(initial.duration_hours)}>
-                <option value="1">1 час</option>
-                <option value="2">2 часа</option>
-                <option value="3">3 часа</option>
-                <option value="4">4 часа</option>
-              </Select>
-            </div>
-
-            {type === "client_training" ? (
-              <div className="space-y-2 sm:col-span-2">
-                <Label htmlFor="client_id">Клиент</Label>
-                <Select id="client_id" name="client_id" required defaultValue={initial.client_id}>
-                  <option value="" disabled>
-                    Выберите клиента
-                  </option>
-                  {clients.map((client) => (
-                    <option key={client.id} value={client.id}>
-                      {client.preferred_name || client.name}
+          <div className="min-h-0 flex-1 overflow-y-auto px-4 py-2.5 sm:py-3">
+            <div className="grid gap-2.5 sm:grid-cols-2 sm:gap-3">
+              <div className="space-y-1">
+                <Label htmlFor="type">Тип</Label>
+                <Select
+                  id="type"
+                  name="type"
+                  value={type}
+                  onChange={(event) => setType(event.target.value as CalendarEventType)}
+                >
+                  {Object.entries(eventTypeLabels).map(([value, label]) => (
+                    <option key={value} value={value}>
+                      {label}
                     </option>
                   ))}
                 </Select>
               </div>
-            ) : null}
 
-            <div className="space-y-2">
-              <Label htmlFor="date">Дата</Label>
-              <Input id="date" name="date" type="date" required defaultValue={initial.date} />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="starts_at_time">Начало</Label>
-              <Select id="starts_at_time" name="starts_at_time" defaultValue={initial.starts_at_time}>
-                {Array.from({ length: 24 }, (_, hour) => {
-                  const value = `${String(hour).padStart(2, "0")}:00`;
-
-                  return (
-                    <option key={value} value={value}>
-                      {value}
-                    </option>
-                  );
-                })}
-              </Select>
-            </div>
-
-            <div className="space-y-2 sm:col-span-2">
-              <Label htmlFor="title">Название</Label>
-              <Input id="title" name="title" defaultValue={initial.title} placeholder="Можно оставить пустым" />
-            </div>
-
-            {event ? (
-              <div className="space-y-2 sm:col-span-2">
-                <Label htmlFor="status">Статус</Label>
-                <Select id="status" name="status" defaultValue={event.status}>
-                  <option value="scheduled">Запланировано</option>
-                  <option value="started">Идет</option>
-                  <option value="completed">Завершено</option>
-                  <option value="cancelled">Отменено</option>
+              <div className="space-y-1">
+                <Label htmlFor="duration_hours">Длительность</Label>
+                <Select id="duration_hours" name="duration_hours" defaultValue={String(initial.duration_hours)}>
+                  <option value="1">1 час</option>
+                  <option value="2">2 часа</option>
+                  <option value="3">3 часа</option>
+                  <option value="4">4 часа</option>
                 </Select>
               </div>
-            ) : null}
+
+              {type === "client_training" ? (
+                <div className="space-y-1 sm:col-span-2">
+                  <Label htmlFor="client_id">Клиент</Label>
+                  <Select id="client_id" name="client_id" required defaultValue={initial.client_id}>
+                    <option value="" disabled>
+                      Выберите клиента
+                    </option>
+                    {clients.map((client) => (
+                      <option key={client.id} value={client.id}>
+                        {client.preferred_name || client.name}
+                      </option>
+                    ))}
+                  </Select>
+                </div>
+              ) : null}
+
+              <div className="space-y-1">
+                <Label htmlFor="date">Дата</Label>
+                <Input id="date" name="date" type="date" required defaultValue={initial.date} />
+              </div>
+
+              <div className="space-y-1">
+                <Label htmlFor="starts_at_time">Начало</Label>
+                <Select id="starts_at_time" name="starts_at_time" defaultValue={initial.starts_at_time}>
+                  {Array.from({ length: 24 }, (_, hour) => {
+                    const value = `${String(hour).padStart(2, "0")}:00`;
+
+                    return (
+                      <option key={value} value={value}>
+                        {value}
+                      </option>
+                    );
+                  })}
+                </Select>
+              </div>
+
+              <div className="space-y-1 sm:col-span-2">
+                <Label htmlFor="title">Название</Label>
+                <Input id="title" name="title" defaultValue={initial.title} placeholder="Можно оставить пустым" />
+              </div>
+
+              {event ? (
+                <div className="space-y-1 sm:col-span-2">
+                  <Label htmlFor="status">Статус</Label>
+                  <Select id="status" name="status" defaultValue={event.status}>
+                    <option value="scheduled">Запланировано</option>
+                    <option value="started">Идет</option>
+                    <option value="completed">Завершено</option>
+                    <option value="cancelled">Отменено</option>
+                  </Select>
+                </div>
+              ) : null}
+            </div>
+
+            {!event ? <input type="hidden" name="status" value="scheduled" /> : null}
+
+            <div className="mt-2.5 space-y-1 sm:mt-3 sm:space-y-1">
+              <Label htmlFor="notes">Заметки</Label>
+              <Textarea id="notes" name="notes" defaultValue={initial.notes} className="min-h-16 sm:min-h-20" />
+            </div>
           </div>
 
-          {!event ? <input type="hidden" name="status" value="scheduled" /> : null}
-
-          <div className="space-y-2">
-            <Label htmlFor="notes">Заметки</Label>
-            <Textarea id="notes" name="notes" defaultValue={initial.notes} />
-          </div>
-
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex shrink-0 flex-col gap-2.5 border-t bg-background px-4 pb-[calc(0.625rem+env(safe-area-inset-bottom))] pt-2.5 sm:flex-row sm:items-center sm:justify-between sm:gap-3 sm:py-3">
             <div>
               {event?.type === "client_training" && event.status === "scheduled" ? (
                 <StartWorkoutButton eventId={event.id} status={event.status} labelOverride="Начать" />

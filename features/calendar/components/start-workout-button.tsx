@@ -54,8 +54,8 @@ function StartWorkoutSubmitButton({
   const colorClassName = isStarted ? "bg-amber-400 text-amber-950 hover:bg-amber-500" : undefined;
 
   if (compact) {
-    const buttonSize = compactSize === "sm" ? "h-9 w-9" : "h-12 w-12";
-    const iconSize = compactSize === "sm" ? "h-4 w-4" : "h-6 w-6";
+    const buttonSize = compactSize === "sm" ? "h-9 w-9" : "h-9 w-9 sm:h-12 sm:w-12";
+    const iconSize = compactSize === "sm" ? "h-4 w-4" : "h-4 w-4 sm:h-6 sm:w-6";
 
     return (
       <Button

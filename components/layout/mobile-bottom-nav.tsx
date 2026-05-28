@@ -9,7 +9,7 @@ const navItems = [
 
 export function MobileBottomNav() {
   return (
-    <nav className="fixed inset-x-0 bottom-0 z-50 border-t bg-background sm:hidden">
+    <nav className="fixed inset-x-0 bottom-0 z-50 border-t bg-background pb-[env(safe-area-inset-bottom)] shadow-[0_-8px_24px_rgba(15,23,42,0.08)] sm:hidden">
       <div className="grid h-16 grid-cols-3">
         {navItems.map((item) => (
           <Link
