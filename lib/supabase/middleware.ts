@@ -3,6 +3,7 @@ import type { CookieOptions } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/database.types";
+import { isEmailAllowed, privatePreviewAccessDeniedMessage } from "@/lib/auth/private-preview";
 import { getSupabaseEnv, hasSupabaseEnv } from "@/lib/supabase/env";
 
 type TypedSupabaseClient = SupabaseClient<Database, "public">;
@@ -69,6 +70,17 @@ export async function updateSession(request: NextRequest) {
     url.pathname = "/login";
     url.searchParams.set("next", pathname);
     return NextResponse.redirect(url);
+  }
+
+  if (user && isProtectedRoute && !isEmailAllowed(user.email)) {
+    await supabase.auth.signOut({ scope: "local" }).catch(() => null);
+    const url = request.nextUrl.clone();
+    url.pathname = "/login";
+    url.search = "";
+    url.searchParams.set("error", privatePreviewAccessDeniedMessage);
+    const redirectResponse = NextResponse.redirect(url);
+    response.cookies.getAll().forEach((cookie) => redirectResponse.cookies.set(cookie));
+    return redirectResponse;
   }
 
   if (user && isAuthRoute && !request.nextUrl.searchParams.has("setup")) {

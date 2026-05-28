@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/server";
 import { authSchema } from "@/features/auth/schemas";
 import { ensureTrainerProfile } from "@/features/trainer/actions";
 import { hasSupabaseEnv } from "@/lib/supabase/env";
+import { isEmailAllowed, isRegistrationEnabled, privatePreviewAccessDeniedMessage, registrationClosedMessage } from "@/lib/auth/private-preview";
 import { getReadableErrorMessage, isTransientNetworkError, retryResultOnTransientError } from "@/lib/errors";
 
 function getString(formData: FormData, key: string) {
@@ -29,10 +30,15 @@ export async function signInWithPassword(formData: FormData) {
     }
 
     const supabase = createClient();
-    const { error } = await retryResultOnTransientError(() => supabase.auth.signInWithPassword(parsed.data));
+    const { data, error } = await retryResultOnTransientError(() => supabase.auth.signInWithPassword(parsed.data));
 
     if (error) {
       redirect(`/login?error=${encodeURIComponent(getReadableErrorMessage(error))}`);
+    }
+
+    if (!isEmailAllowed(data.user?.email)) {
+      await retryResultOnTransientError(() => supabase.auth.signOut({ scope: "local" }));
+      redirect(`/login?error=${encodeURIComponent(privatePreviewAccessDeniedMessage)}`);
     }
 
     await ensureTrainerProfile();
@@ -50,6 +56,10 @@ export async function signUpWithPassword(formData: FormData) {
   try {
     if (!hasSupabaseEnv()) {
       redirect("/register?setup=supabase");
+    }
+
+    if (!isRegistrationEnabled()) {
+      redirect(`/register?error=${encodeURIComponent(registrationClosedMessage)}`);
     }
 
     const parsed = authSchema.safeParse({
