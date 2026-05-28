@@ -8,6 +8,7 @@
     "start": "next start",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
+    "create:test-user": "node --experimental-strip-types scripts/create-test-user.ts",
     "supabase:types": "supabase gen types typescript --local > lib/database.types.ts"
   },
   "dependencies": {

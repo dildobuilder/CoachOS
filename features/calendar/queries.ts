@@ -178,16 +178,47 @@ export async function getCalendarEventById(eventId: string): Promise<CalendarEve
   };
 }
 
-async function getEventsForRange(startsAt: string, endsAt: string): Promise<CalendarEventsResult> {
+export async function getClientEventsForRange(
+  clientId: string,
+  startsAt: string,
+  endsAt: string
+): Promise<CalendarEventWithClient[]> {
+  const result = await getEventsForRange(startsAt, endsAt, {
+    clientId,
+    excludeCancelled: true
+  });
+
+  if (result.error) {
+    throw new Error(result.error);
+  }
+
+  return result.events;
+}
+
+async function getEventsForRange(
+  startsAt: string,
+  endsAt: string,
+  options: { clientId?: string; excludeCancelled?: boolean } = {}
+): Promise<CalendarEventsResult> {
   const supabase = createClient();
-  const { data, error } = await retryResultOnTransientError(() =>
-    supabase
+  const { data, error } = await retryResultOnTransientError(() => {
+    let query = supabase
       .from("calendar_events")
       .select("*, clients(id, name, preferred_name)")
       .gte("starts_at", startsAt)
       .lt("starts_at", endsAt)
-      .order("starts_at", { ascending: true })
-  );
+      .order("starts_at", { ascending: true });
+
+    if (options.clientId) {
+      query = query.eq("client_id", options.clientId);
+    }
+
+    if (options.excludeCancelled) {
+      query = query.neq("status", "cancelled");
+    }
+
+    return query;
+  });
 
   if (error) {
     return {

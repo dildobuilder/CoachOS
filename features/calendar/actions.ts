@@ -354,12 +354,22 @@ function successRedirectPath(startDate: string, returnToPath?: string | null) {
     return "/dashboard";
   }
 
+  if (returnToPath?.startsWith("/clients/")) {
+    return appendQuery(returnToPath, "start", startDate);
+  }
+
   return `/calendar?start=${startDate}`;
 }
 
 function calendarErrorPath(startDate: string | undefined, message: string, returnToPath?: string | null) {
   if (returnToPath === "/dashboard") {
     return `/dashboard?error=${encodeURIComponent(message)}`;
+  }
+
+  if (returnToPath?.startsWith("/clients/")) {
+    const path = startDate ? appendQuery(returnToPath, "start", startDate) : returnToPath;
+
+    return appendQuery(path, "error", message);
   }
 
   const params = new URLSearchParams();
@@ -371,6 +381,12 @@ function calendarErrorPath(startDate: string | undefined, message: string, retur
   params.set("error", message);
 
   return `/calendar?${params.toString()}`;
+}
+
+function appendQuery(path: string, key: string, value: string) {
+  const separator = path.includes("?") ? "&" : "?";
+
+  return `${path}${separator}${key}=${encodeURIComponent(value)}`;
 }
 
 function formDateTimeToUtc(dateValue: string, timeValue: string, timezone: string) {

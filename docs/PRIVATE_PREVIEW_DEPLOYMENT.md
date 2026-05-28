@@ -15,10 +15,12 @@ Sprint 1E-0 prepares CoachOS for a closed Vercel deployment. This is not a publi
 NEXT_PUBLIC_SUPABASE_URL=
 NEXT_PUBLIC_SUPABASE_ANON_KEY=
 REGISTRATION_ENABLED=false
-ALLOWED_EMAILS=mkomarenko30@gmail.com
+ALLOWED_EMAILS=mkomarenko30@gmail.com,testuser@coachos.test
 ```
 
 Do not add Supabase `service_role` or secret keys. CoachOS only needs the public Supabase URL and anon key for this frontend app.
+
+For QA with a separate test account, see `docs/TEST_USER_SETUP.md`. After updating `ALLOWED_EMAILS` in Vercel, redeploy the project.
 
 ## Supabase Auth Settings
 

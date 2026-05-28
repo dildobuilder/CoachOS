@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { PageHeader } from "@/components/layout/page-header";
 import { Button } from "@/components/ui/button";
+import { ClientProfileNav } from "@/features/clients/components/client-profile-nav";
 import { getClientById } from "@/features/clients/queries";
 import { ClientSessionHistory } from "@/features/workouts/components/client-session-history";
 import { getClientSessionHistory } from "@/features/workouts/queries";
@@ -19,10 +20,8 @@ export default async function ClientHistoryPage({ params }: ClientHistoryPagePro
 
   return (
     <div className="space-y-6">
-      <PageHeader
-        title="История тренировок"
-        description={client.preferred_name || client.name}
-      />
+      <PageHeader title="История тренировок" description={client.preferred_name || client.name} />
+      <ClientProfileNav clientId={client.id} active="history" />
       <Button asChild variant="outline">
         <Link href={`/clients/${client.id}`}>Назад к клиенту</Link>
       </Button>

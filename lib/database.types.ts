@@ -61,6 +61,7 @@ export type Database = {
           training_split: string | null;
           status: "active" | "paused" | "archived";
           started_at: string | null;
+          starting_weight: number | null;
           created_at: string;
           updated_at: string;
         } & Record<string, unknown>;
@@ -82,6 +83,7 @@ export type Database = {
           training_split?: string | null;
           status?: "active" | "paused" | "archived";
           started_at?: string | null;
+          starting_weight?: number | null;
           created_at?: string;
           updated_at?: string;
         } & Record<string, unknown>;
@@ -103,12 +105,73 @@ export type Database = {
           training_split?: string | null;
           status?: "active" | "paused" | "archived";
           started_at?: string | null;
+          starting_weight?: number | null;
           created_at?: string;
           updated_at?: string;
         } & Record<string, unknown>;
         Relationships: [
           {
             foreignKeyName: "clients_trainer_id_fkey";
+            columns: ["trainer_id"];
+            isOneToOne: false;
+            referencedRelation: "trainer_profiles";
+            referencedColumns: ["id"];
+          }
+        ];
+      };
+      client_daily_logs: {
+        Row: {
+          id: string;
+          trainer_id: string;
+          client_id: string;
+          log_date: string;
+          body_weight: number | null;
+          calories: number | null;
+          protein: number | null;
+          fat: number | null;
+          carbs: number | null;
+          notes: string | null;
+          created_at: string;
+          updated_at: string;
+        } & Record<string, unknown>;
+        Insert: {
+          id?: string;
+          trainer_id: string;
+          client_id: string;
+          log_date: string;
+          body_weight?: number | null;
+          calories?: number | null;
+          protein?: number | null;
+          fat?: number | null;
+          carbs?: number | null;
+          notes?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        } & Record<string, unknown>;
+        Update: {
+          id?: string;
+          trainer_id?: string;
+          client_id?: string;
+          log_date?: string;
+          body_weight?: number | null;
+          calories?: number | null;
+          protein?: number | null;
+          fat?: number | null;
+          carbs?: number | null;
+          notes?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        } & Record<string, unknown>;
+        Relationships: [
+          {
+            foreignKeyName: "client_daily_logs_client_id_fkey";
+            columns: ["client_id"];
+            isOneToOne: false;
+            referencedRelation: "clients";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "client_daily_logs_trainer_id_fkey";
             columns: ["trainer_id"];
             isOneToOne: false;
             referencedRelation: "trainer_profiles";
