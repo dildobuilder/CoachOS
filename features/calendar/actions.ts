@@ -4,6 +4,7 @@ import { isRedirectError } from "next/dist/client/components/redirect";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { calendarEventSchema, updateCalendarEventSchema } from "@/features/calendar/schemas";
+import { prefillSessionFromPlannedWorkout } from "@/features/planning/session-prefill";
 import { getTrainerProfile } from "@/features/trainer/queries";
 import type { TablesInsert, TablesUpdate } from "@/lib/database.types";
 import { getReadableErrorMessage, isTransientNetworkError } from "@/lib/errors";
@@ -222,10 +223,21 @@ export async function startWorkoutFromEvent(eventId: string) {
       redirect(`/sessions/${existingSession.id}`);
     }
 
+    const { data: plannedWorkout, error: plannedWorkoutError } = await supabase
+      .from("planned_workouts")
+      .select("id")
+      .eq("calendar_event_id", event.id)
+      .maybeSingle();
+
+    if (plannedWorkoutError) {
+      redirect(calendarErrorPath(undefined, plannedWorkoutError.message));
+    }
+
     const sessionInsert: TablesInsert<"workout_sessions"> = {
       trainer_id: trainerId,
       client_id: event.client_id,
       calendar_event_id: event.id,
+      planned_workout_id: plannedWorkout?.id ?? null,
       status: "started"
     };
     const { data: session, error: sessionError } = await supabase
@@ -248,11 +260,27 @@ export async function startWorkoutFromEvent(eventId: string) {
       redirect(calendarErrorPath(undefined, sessionError.message));
     }
 
+    if (plannedWorkout) {
+      await prefillSessionFromPlannedWorkout({
+        sessionId: session.id,
+        plannedWorkoutId: plannedWorkout.id,
+        trainerId
+      });
+      await supabase
+        .from("planned_workouts")
+        .update({ status: "in_progress" } satisfies TablesUpdate<"planned_workouts">)
+        .eq("id", plannedWorkout.id);
+    }
+
     const eventUpdate: TablesUpdate<"calendar_events"> = { status: "started" };
     await supabase.from("calendar_events").update(eventUpdate).eq("id", event.id);
 
     revalidatePath("/calendar");
     revalidatePath("/dashboard");
+    if (event.client_id) {
+      revalidatePath(`/clients/${event.client_id}/calendar`);
+      revalidatePath(`/clients/${event.client_id}/plans`);
+    }
     redirect(`/sessions/${session.id}`);
   } catch (error) {
     if (isRedirectError(error)) {

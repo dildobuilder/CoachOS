@@ -289,8 +289,17 @@ export async function completeWorkoutSession(sessionId: string, formData: FormDa
     await supabase.from("calendar_events").update(eventUpdate).eq("id", session.calendar_event_id);
   }
 
+  if (session.planned_workout_id) {
+    await supabase
+      .from("planned_workouts")
+      .update({ status: "completed" } satisfies TablesUpdate<"planned_workouts">)
+      .eq("id", session.planned_workout_id);
+  }
+
   revalidatePath(`/sessions/${sessionId}`);
   revalidatePath(`/clients/${session.client_id}/history`);
+  revalidatePath(`/clients/${session.client_id}/calendar`);
+  revalidatePath(`/clients/${session.client_id}/plans`);
   revalidatePath("/calendar");
   revalidatePath("/dashboard");
   redirect(`/clients/${session.client_id}/history`);

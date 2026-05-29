@@ -47,6 +47,9 @@ export default async function ClientCalendarPage({ params, searchParams }: Clien
         <Button asChild variant="outline">
           <Link href="/calendar">Общий календарь</Link>
         </Button>
+        <Button asChild variant="outline">
+          <Link href={`/clients/${client.id}/plans`}>Планы</Link>
+        </Button>
       </div>
 
       <ClientWeightSummary

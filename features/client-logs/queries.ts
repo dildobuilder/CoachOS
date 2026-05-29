@@ -1,4 +1,5 @@
 import { addDays, getClientEventsForRange, getEventDateRange } from "@/features/calendar/queries";
+import { getClientPlannedWorkouts, type PlannedWorkoutListItem } from "@/features/planning/queries";
 import { getTrainerProfile } from "@/features/trainer/queries";
 import type { CalendarEventWithClient } from "@/features/calendar/queries";
 import type { Tables } from "@/lib/database.types";
@@ -9,6 +10,7 @@ export type ClientDailyLogRow = Tables<"client_daily_logs">;
 export type ClientCalendarDay = {
   date: string;
   events: CalendarEventWithClient[];
+  plannedWorkouts: PlannedWorkoutListItem[];
   log: ClientDailyLogRow | null;
 };
 
@@ -83,9 +85,10 @@ export async function getClientCalendarData(
   const daysCount = options.days ?? 30;
   const endDate = addDays(startDate, daysCount);
   const dateRange = getEventDateRange(startDate, timezone, daysCount);
-  const [events, logs] = await Promise.all([
+  const [events, logs, plannedWorkouts] = await Promise.all([
     getClientEventsForRange(clientId, dateRange.startsAt, dateRange.endsAt),
-    getClientDailyLogs(clientId, { startDate, endDate })
+    getClientDailyLogs(clientId, { startDate, endDate }),
+    getClientPlannedWorkouts(clientId, { startDate, endDate })
   ]);
 
   return {
@@ -98,6 +101,7 @@ export async function getClientCalendarData(
       return {
         date,
         events: events.filter((event) => getDateValueInTimezone(new Date(event.starts_at), timezone) === date),
+        plannedWorkouts: plannedWorkouts.filter((workout) => !workout.calendar_event_id && workout.planned_date === date),
         log: logs.find((log) => log.log_date === date) ?? null
       };
     })

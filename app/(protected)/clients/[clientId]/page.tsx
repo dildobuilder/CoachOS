@@ -33,6 +33,9 @@ export default async function ClientPage({ params }: ClientPageProps) {
         <Button asChild variant="outline">
           <Link href={`/clients/${client.id}/calendar`}>Календарь клиента</Link>
         </Button>
+        <Button asChild variant="outline">
+          <Link href={`/clients/${client.id}/plans`}>Планы</Link>
+        </Button>
       </div>
       <ClientWeightSummary
         clientId={client.id}

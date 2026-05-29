@@ -1,0 +1,70 @@
+import Link from "next/link";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import type { TrainingPlanRow } from "@/features/planning/queries";
+
+type TrainingPlanListProps = {
+  clientId: string;
+  plans: TrainingPlanRow[];
+};
+
+export function TrainingPlanList({ clientId, plans }: TrainingPlanListProps) {
+  if (plans.length === 0) {
+    return (
+      <Card>
+        <CardContent className="p-5">
+          <p className="text-sm text-muted-foreground">Планов пока нет.</p>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  return (
+    <div className="grid gap-3">
+      {plans.map((plan) => (
+        <Card key={plan.id}>
+          <CardContent className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="space-y-1">
+              <div className="flex flex-wrap items-center gap-2">
+                <h3 className="font-semibold">{plan.name}</h3>
+                <Badge variant="outline">{statusLabel(plan.status)}</Badge>
+              </div>
+              <p className="text-sm text-muted-foreground">
+                {formatDate(plan.starts_on)} - {formatDate(plan.ends_on)} · {plan.sessions_per_week} трен./нед.
+              </p>
+            </div>
+            <Button asChild variant="outline">
+              <Link href={`/clients/${clientId}/plans/${plan.id}`}>Открыть</Link>
+            </Button>
+          </CardContent>
+        </Card>
+      ))}
+    </div>
+  );
+}
+
+function statusLabel(status: TrainingPlanRow["status"]) {
+  if (status === "completed") {
+    return "Завершен";
+  }
+
+  if (status === "archived") {
+    return "Архив";
+  }
+
+  return "Активен";
+}
+
+function formatDate(value: string) {
+  return new Intl.DateTimeFormat("ru-RU", {
+    day: "2-digit",
+    month: "short"
+  }).format(parseDate(value));
+}
+
+function parseDate(value: string) {
+  const [year, month, day] = value.split("-").map(Number);
+
+  return new Date(year, month - 1, day);
+}

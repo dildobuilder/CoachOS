@@ -51,6 +51,29 @@ export function ClientCalendarDayList({ clientId, startDate, days }: ClientCalen
               ) : (
                 <p className="text-sm text-muted-foreground">Тренировок нет.</p>
               )}
+              {day.plannedWorkouts.length > 0 ? (
+                <div className="grid gap-2">
+                  {day.plannedWorkouts.map((workout) => (
+                    <div
+                      key={workout.id}
+                      className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-dashed bg-secondary/30 p-2"
+                    >
+                      <div>
+                        <div className="font-medium">{workout.name}</div>
+                        <div className="text-xs text-muted-foreground">
+                          {workout.training_plans?.name ?? "План"} · без времени
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Badge variant="outline">План</Badge>
+                        <Button asChild size="sm" variant="outline">
+                          <Link href={`/clients/${clientId}/planned-workouts/${workout.id}`}>Открыть план</Link>
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : null}
             </div>
 
             <div className="space-y-2">

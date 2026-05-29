@@ -179,6 +179,264 @@ export type Database = {
           }
         ];
       };
+      training_plans: {
+        Row: {
+          id: string;
+          trainer_id: string;
+          client_id: string;
+          name: string;
+          duration_weeks: number;
+          starts_on: string;
+          ends_on: string;
+          sessions_per_week: number;
+          training_weekdays: number[];
+          split_type: "full_body" | "upper_lower" | "push_pull_legs" | "powerlifting" | "custom";
+          status: "active" | "completed" | "archived";
+          notes: string | null;
+          created_at: string;
+          updated_at: string;
+        } & Record<string, unknown>;
+        Insert: {
+          id?: string;
+          trainer_id: string;
+          client_id: string;
+          name: string;
+          duration_weeks?: number;
+          starts_on: string;
+          ends_on: string;
+          sessions_per_week: number;
+          training_weekdays: number[];
+          split_type: "full_body" | "upper_lower" | "push_pull_legs" | "powerlifting" | "custom";
+          status?: "active" | "completed" | "archived";
+          notes?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        } & Record<string, unknown>;
+        Update: {
+          id?: string;
+          trainer_id?: string;
+          client_id?: string;
+          name?: string;
+          duration_weeks?: number;
+          starts_on?: string;
+          ends_on?: string;
+          sessions_per_week?: number;
+          training_weekdays?: number[];
+          split_type?: "full_body" | "upper_lower" | "push_pull_legs" | "powerlifting" | "custom";
+          status?: "active" | "completed" | "archived";
+          notes?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        } & Record<string, unknown>;
+        Relationships: [
+          {
+            foreignKeyName: "training_plans_client_id_fkey";
+            columns: ["client_id"];
+            isOneToOne: false;
+            referencedRelation: "clients";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "training_plans_trainer_id_fkey";
+            columns: ["trainer_id"];
+            isOneToOne: false;
+            referencedRelation: "trainer_profiles";
+            referencedColumns: ["id"];
+          }
+        ];
+      };
+      planned_workouts: {
+        Row: {
+          id: string;
+          trainer_id: string;
+          training_plan_id: string;
+          client_id: string;
+          calendar_event_id: string | null;
+          name: string;
+          planned_date: string;
+          week_number: number;
+          day_number: number;
+          status: "planned" | "scheduled" | "in_progress" | "completed" | "cancelled";
+          notes: string | null;
+          created_at: string;
+          updated_at: string;
+        } & Record<string, unknown>;
+        Insert: {
+          id?: string;
+          trainer_id: string;
+          training_plan_id: string;
+          client_id: string;
+          calendar_event_id?: string | null;
+          name: string;
+          planned_date: string;
+          week_number: number;
+          day_number: number;
+          status?: "planned" | "scheduled" | "in_progress" | "completed" | "cancelled";
+          notes?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        } & Record<string, unknown>;
+        Update: {
+          id?: string;
+          trainer_id?: string;
+          training_plan_id?: string;
+          client_id?: string;
+          calendar_event_id?: string | null;
+          name?: string;
+          planned_date?: string;
+          week_number?: number;
+          day_number?: number;
+          status?: "planned" | "scheduled" | "in_progress" | "completed" | "cancelled";
+          notes?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        } & Record<string, unknown>;
+        Relationships: [
+          {
+            foreignKeyName: "planned_workouts_calendar_event_id_fkey";
+            columns: ["calendar_event_id"];
+            isOneToOne: false;
+            referencedRelation: "calendar_events";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "planned_workouts_client_id_fkey";
+            columns: ["client_id"];
+            isOneToOne: false;
+            referencedRelation: "clients";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "planned_workouts_trainer_id_fkey";
+            columns: ["trainer_id"];
+            isOneToOne: false;
+            referencedRelation: "trainer_profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "planned_workouts_training_plan_id_fkey";
+            columns: ["training_plan_id"];
+            isOneToOne: false;
+            referencedRelation: "training_plans";
+            referencedColumns: ["id"];
+          }
+        ];
+      };
+      planned_exercises: {
+        Row: {
+          id: string;
+          trainer_id: string;
+          planned_workout_id: string;
+          exercise_id: string | null;
+          name_snapshot: string;
+          position: number;
+          intensity_type: "none" | "rpe" | "rir" | "percent" | "time";
+          notes: string | null;
+          created_at: string;
+          updated_at: string;
+        } & Record<string, unknown>;
+        Insert: {
+          id?: string;
+          trainer_id: string;
+          planned_workout_id: string;
+          exercise_id?: string | null;
+          name_snapshot: string;
+          position?: number;
+          intensity_type?: "none" | "rpe" | "rir" | "percent" | "time";
+          notes?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        } & Record<string, unknown>;
+        Update: {
+          id?: string;
+          trainer_id?: string;
+          planned_workout_id?: string;
+          exercise_id?: string | null;
+          name_snapshot?: string;
+          position?: number;
+          intensity_type?: "none" | "rpe" | "rir" | "percent" | "time";
+          notes?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        } & Record<string, unknown>;
+        Relationships: [
+          {
+            foreignKeyName: "planned_exercises_exercise_id_fkey";
+            columns: ["exercise_id"];
+            isOneToOne: false;
+            referencedRelation: "exercises";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "planned_exercises_planned_workout_id_fkey";
+            columns: ["planned_workout_id"];
+            isOneToOne: false;
+            referencedRelation: "planned_workouts";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "planned_exercises_trainer_id_fkey";
+            columns: ["trainer_id"];
+            isOneToOne: false;
+            referencedRelation: "trainer_profiles";
+            referencedColumns: ["id"];
+          }
+        ];
+      };
+      planned_sets: {
+        Row: {
+          id: string;
+          trainer_id: string;
+          planned_exercise_id: string;
+          position: number;
+          weight: number | null;
+          reps: number | null;
+          intensity_value: number | null;
+          notes: string | null;
+          created_at: string;
+          updated_at: string;
+        } & Record<string, unknown>;
+        Insert: {
+          id?: string;
+          trainer_id: string;
+          planned_exercise_id: string;
+          position?: number;
+          weight?: number | null;
+          reps?: number | null;
+          intensity_value?: number | null;
+          notes?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        } & Record<string, unknown>;
+        Update: {
+          id?: string;
+          trainer_id?: string;
+          planned_exercise_id?: string;
+          position?: number;
+          weight?: number | null;
+          reps?: number | null;
+          intensity_value?: number | null;
+          notes?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        } & Record<string, unknown>;
+        Relationships: [
+          {
+            foreignKeyName: "planned_sets_planned_exercise_id_fkey";
+            columns: ["planned_exercise_id"];
+            isOneToOne: false;
+            referencedRelation: "planned_exercises";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "planned_sets_trainer_id_fkey";
+            columns: ["trainer_id"];
+            isOneToOne: false;
+            referencedRelation: "trainer_profiles";
+            referencedColumns: ["id"];
+          }
+        ];
+      };
       calendar_events: {
         Row: {
           id: string;
@@ -310,6 +568,7 @@ export type Database = {
           trainer_id: string;
           client_id: string;
           calendar_event_id: string | null;
+          planned_workout_id: string | null;
           status: "started" | "completed" | "cancelled";
           started_at: string;
           completed_at: string | null;
@@ -323,6 +582,7 @@ export type Database = {
           trainer_id: string;
           client_id: string;
           calendar_event_id?: string | null;
+          planned_workout_id?: string | null;
           status?: "started" | "completed" | "cancelled";
           started_at?: string;
           completed_at?: string | null;
@@ -336,6 +596,7 @@ export type Database = {
           trainer_id?: string;
           client_id?: string;
           calendar_event_id?: string | null;
+          planned_workout_id?: string | null;
           status?: "started" | "completed" | "cancelled";
           started_at?: string;
           completed_at?: string | null;
@@ -360,6 +621,13 @@ export type Database = {
             referencedColumns: ["id"];
           },
           {
+            foreignKeyName: "workout_sessions_planned_workout_id_fkey";
+            columns: ["planned_workout_id"];
+            isOneToOne: false;
+            referencedRelation: "planned_workouts";
+            referencedColumns: ["id"];
+          },
+          {
             foreignKeyName: "workout_sessions_trainer_id_fkey";
             columns: ["trainer_id"];
             isOneToOne: false;
@@ -374,6 +642,7 @@ export type Database = {
           session_id: string;
           trainer_id: string;
           exercise_id: string | null;
+          planned_exercise_id: string | null;
           name: string;
           name_snapshot: string;
           position: number;
@@ -387,6 +656,7 @@ export type Database = {
           session_id: string;
           trainer_id: string;
           exercise_id?: string | null;
+          planned_exercise_id?: string | null;
           name: string;
           name_snapshot: string;
           position?: number;
@@ -400,6 +670,7 @@ export type Database = {
           session_id?: string;
           trainer_id?: string;
           exercise_id?: string | null;
+          planned_exercise_id?: string | null;
           name?: string;
           name_snapshot?: string;
           position?: number;
@@ -414,6 +685,13 @@ export type Database = {
             columns: ["exercise_id"];
             isOneToOne: false;
             referencedRelation: "exercises";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "session_exercises_planned_exercise_id_fkey";
+            columns: ["planned_exercise_id"];
+            isOneToOne: false;
+            referencedRelation: "planned_exercises";
             referencedColumns: ["id"];
           },
           {
@@ -437,6 +715,7 @@ export type Database = {
           id: string;
           session_exercise_id: string;
           trainer_id: string;
+          planned_set_id: string | null;
           position: number;
           weight: number | null;
           reps: number | null;
@@ -450,6 +729,7 @@ export type Database = {
           id?: string;
           session_exercise_id: string;
           trainer_id: string;
+          planned_set_id?: string | null;
           position?: number;
           weight?: number | null;
           reps?: number | null;
@@ -463,6 +743,7 @@ export type Database = {
           id?: string;
           session_exercise_id?: string;
           trainer_id?: string;
+          planned_set_id?: string | null;
           position?: number;
           weight?: number | null;
           reps?: number | null;
@@ -473,6 +754,13 @@ export type Database = {
           updated_at?: string;
         } & Record<string, unknown>;
         Relationships: [
+          {
+            foreignKeyName: "session_sets_planned_set_id_fkey";
+            columns: ["planned_set_id"];
+            isOneToOne: false;
+            referencedRelation: "planned_sets";
+            referencedColumns: ["id"];
+          },
           {
             foreignKeyName: "session_sets_session_exercise_id_fkey";
             columns: ["session_exercise_id"];
