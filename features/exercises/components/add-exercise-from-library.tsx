@@ -17,6 +17,7 @@ type AddExerciseFromLibraryProps = {
 };
 
 export function AddExerciseFromLibrary({ sessionId, exercises, categories }: AddExerciseFromLibraryProps) {
+  const [isOpen, setIsOpen] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<ExerciseCategory>(categories[0]);
   const [search, setSearch] = useState("");
   const [showCustomForm, setShowCustomForm] = useState(false);
@@ -44,45 +45,67 @@ export function AddExerciseFromLibrary({ sessionId, exercises, categories }: Add
   return (
     <Card>
       <CardHeader className="space-y-3">
-        <div>
-          <CardTitle>Добавить упражнение</CardTitle>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Выберите группу и добавьте упражнение из базы CoachOS.
-          </p>
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <CardTitle>Добавить упражнение</CardTitle>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Выберите упражнение из базы CoachOS или добавьте своё.
+            </p>
+          </div>
+          <button
+            type="button"
+            className="inline-flex h-10 items-center justify-center rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground hover:bg-primary/90"
+            onClick={() => setIsOpen((value) => !value)}
+          >
+            {isOpen ? "Скрыть" : "Добавить упражнение"}
+          </button>
         </div>
-        <ExerciseCategorySelector
-          categories={categories}
-          selectedCategory={selectedCategory}
-          onSelect={setSelectedCategory}
-        />
       </CardHeader>
-      <CardContent className="space-y-4">
-        <ExerciseSearch value={search} onChange={setSearch} />
-        <ExerciseList sessionId={sessionId} exercises={visibleExercises} />
 
-        <div className="flex flex-wrap gap-2 border-t pt-4">
-          <button
-            type="button"
-            className="text-sm font-medium text-primary hover:underline"
-            onClick={() => setShowCustomForm((value) => !value)}
-          >
-            {showCustomForm ? "Скрыть своё упражнение" : "Добавить своё упражнение"}
-          </button>
-          <button
-            type="button"
-            className="text-sm text-muted-foreground hover:text-foreground hover:underline"
-            onClick={() => setShowLegacyForm((value) => !value)}
-          >
-            {showLegacyForm ? "Скрыть ручной ввод" : "Ручной ввод"}
-          </button>
-        </div>
+      {isOpen ? (
+        <CardContent className="space-y-4">
+          <ExerciseCategorySelector
+            categories={categories}
+            selectedCategory={selectedCategory}
+            onSelect={setSelectedCategory}
+          />
+          <ExerciseSearch value={search} onChange={setSearch} />
+          <ExerciseList sessionId={sessionId} exercises={visibleExercises} />
 
-        {showCustomForm ? (
-          <CustomExerciseForm sessionId={sessionId} categories={categories} defaultCategory={selectedCategory} />
-        ) : null}
+          <div className="flex flex-wrap gap-2 border-t pt-4">
+            <button
+              type="button"
+              className="text-sm font-medium text-primary hover:underline"
+              onClick={() => setShowCustomForm((value) => !value)}
+            >
+              {showCustomForm ? "Скрыть своё упражнение" : "Добавить своё упражнение"}
+            </button>
+            <button
+              type="button"
+              className="text-sm text-muted-foreground hover:text-foreground hover:underline"
+              onClick={() => setShowLegacyForm((value) => !value)}
+            >
+              {showLegacyForm ? "Скрыть ручной ввод" : "Ручной ввод"}
+            </button>
+          </div>
 
-        {showLegacyForm ? <AddExerciseForm sessionId={sessionId} /> : null}
-      </CardContent>
+          {showCustomForm ? (
+            <CustomExerciseForm sessionId={sessionId} categories={categories} defaultCategory={selectedCategory} />
+          ) : null}
+
+          {showLegacyForm ? <AddExerciseForm sessionId={sessionId} /> : null}
+
+          <div className="flex justify-end border-t pt-4">
+            <button
+              type="button"
+              className="text-sm text-muted-foreground hover:text-foreground hover:underline"
+              onClick={() => setIsOpen(false)}
+            >
+              Скрыть
+            </button>
+          </div>
+        </CardContent>
+      ) : null}
     </Card>
   );
 }

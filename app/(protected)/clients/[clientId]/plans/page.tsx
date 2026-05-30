@@ -32,6 +32,9 @@ export default async function ClientPlansPage({ params, searchParams }: ClientPl
           <Link href={`/clients/${client.id}/plans/new`}>Создать тренировочный план</Link>
         </Button>
         <Button asChild variant="outline">
+          <Link href={`/clients/${client.id}/plans/templates`}>Создать из шаблона</Link>
+        </Button>
+        <Button asChild variant="outline">
           <Link href={`/clients/${client.id}/calendar`}>Календарь клиента</Link>
         </Button>
       </div>

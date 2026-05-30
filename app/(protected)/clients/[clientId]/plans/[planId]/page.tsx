@@ -4,8 +4,9 @@ import { PageHeader } from "@/components/layout/page-header";
 import { Button } from "@/components/ui/button";
 import { ClientProfileNav } from "@/features/clients/components/client-profile-nav";
 import { getClientById } from "@/features/clients/queries";
+import { PlanPatternsPanel } from "@/features/planning/components/plan-patterns-panel";
 import { PlanWorkoutList } from "@/features/planning/components/plan-workout-list";
-import { getPlanWorkouts, getTrainingPlan } from "@/features/planning/queries";
+import { getPlanWorkouts, getTrainingPlan, getTrainingPlanPatterns } from "@/features/planning/queries";
 
 type TrainingPlanPageProps = {
   params: {
@@ -18,10 +19,11 @@ type TrainingPlanPageProps = {
 };
 
 export default async function TrainingPlanPage({ params, searchParams }: TrainingPlanPageProps) {
-  const [client, plan, workouts] = await Promise.all([
+  const [client, plan, workouts, patterns] = await Promise.all([
     getClientById(params.clientId),
     getTrainingPlan(params.planId),
-    getPlanWorkouts(params.planId)
+    getPlanWorkouts(params.planId),
+    getTrainingPlanPatterns(params.planId)
   ]);
 
   return (
@@ -37,6 +39,7 @@ export default async function TrainingPlanPage({ params, searchParams }: Trainin
           <Link href={`/clients/${client.id}/calendar`}>Календарь клиента</Link>
         </Button>
       </div>
+      <PlanPatternsPanel clientId={client.id} plan={plan} patterns={patterns} />
       <PlanWorkoutList clientId={client.id} workouts={workouts} />
     </div>
   );

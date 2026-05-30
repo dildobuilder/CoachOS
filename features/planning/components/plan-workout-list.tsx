@@ -20,6 +20,11 @@ export function PlanWorkoutList({ clientId, workouts }: PlanWorkoutListProps) {
               <div className="flex flex-wrap items-center gap-2">
                 <h3 className="font-semibold">{workout.name}</h3>
                 <Badge variant={workout.status === "planned" ? "outline" : "default"}>{statusLabel(workout.status)}</Badge>
+                {workout.training_plan_patterns ? (
+                  <Badge variant="secondary">
+                    {workout.training_plan_patterns.code} - {workout.training_plan_patterns.name}
+                  </Badge>
+                ) : null}
               </div>
               <p className="text-sm text-muted-foreground">
                 Неделя {workout.week_number} · {formatDate(workout.planned_date)}

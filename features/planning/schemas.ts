@@ -70,5 +70,50 @@ export const schedulePlannedWorkoutSchema = z.object({
   notes: optionalText
 });
 
+export const planPatternSchema = z.object({
+  code: z.string().trim().min(1, "Введите код тренировки").max(12),
+  name: z.string().trim().min(1, "Введите название тренировки"),
+  description: optionalText
+});
+
+export const patternExerciseUpdateSchema = z.object({
+  intensity_type: intensityTypeSchema.default("none"),
+  notes: optionalText
+});
+
+export const patternSetSchema = plannedSetSchema;
+
+export const assignPatternSchema = z.object({
+  weekday: z.coerce.number().int().min(1).max(7),
+  pattern_id: z.string().uuid("Выберите тренировку")
+});
+
+export const applyPatternSchema = z.object({
+  scope: z.enum(["future_only", "all_not_started"]).default("future_only")
+});
+
+export const savePlanTemplateSchema = z.object({
+  name: z.string().trim().min(1, "Введите название шаблона"),
+  description: optionalText,
+  category: optionalText,
+  use_case: optionalText
+});
+
+export const createPlanFromTemplateSchema = z
+  .object({
+    template_id: z.string().uuid("Выберите шаблон"),
+    name: optionalText,
+    starts_on: z.string().trim().regex(/^\d{4}-\d{2}-\d{2}$/, "Выберите дату старта"),
+    duration_weeks: z.coerce.number().int().min(1).max(52).default(4),
+    training_weekdays: z
+      .array(z.coerce.number().int().min(1).max(7))
+      .min(1, "Выберите хотя бы один тренировочный день")
+  })
+  .transform((value) => ({
+    ...value,
+    training_weekdays: Array.from(new Set(value.training_weekdays)).sort((a, b) => a - b),
+    sessions_per_week: Array.from(new Set(value.training_weekdays)).length
+  }));
+
 export type TrainingPlanFormValues = z.infer<typeof trainingPlanSchema>;
 export type PlannedWorkoutStatus = z.infer<typeof plannedWorkoutStatusSchema>;

@@ -252,6 +252,7 @@ export type Database = {
           training_plan_id: string;
           client_id: string;
           calendar_event_id: string | null;
+          pattern_id: string | null;
           name: string;
           planned_date: string;
           week_number: number;
@@ -267,6 +268,7 @@ export type Database = {
           training_plan_id: string;
           client_id: string;
           calendar_event_id?: string | null;
+          pattern_id?: string | null;
           name: string;
           planned_date: string;
           week_number: number;
@@ -282,6 +284,7 @@ export type Database = {
           training_plan_id?: string;
           client_id?: string;
           calendar_event_id?: string | null;
+          pattern_id?: string | null;
           name?: string;
           planned_date?: string;
           week_number?: number;
@@ -304,6 +307,13 @@ export type Database = {
             columns: ["client_id"];
             isOneToOne: false;
             referencedRelation: "clients";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "planned_workouts_pattern_id_fkey";
+            columns: ["pattern_id"];
+            isOneToOne: false;
+            referencedRelation: "training_plan_patterns";
             referencedColumns: ["id"];
           },
           {
@@ -430,6 +440,400 @@ export type Database = {
           },
           {
             foreignKeyName: "planned_sets_trainer_id_fkey";
+            columns: ["trainer_id"];
+            isOneToOne: false;
+            referencedRelation: "trainer_profiles";
+            referencedColumns: ["id"];
+          }
+        ];
+      };
+      training_plan_patterns: {
+        Row: {
+          id: string;
+          trainer_id: string;
+          training_plan_id: string;
+          name: string;
+          code: string;
+          description: string | null;
+          position: number;
+          status: "active" | "archived";
+          created_at: string;
+          updated_at: string;
+        } & Record<string, unknown>;
+        Insert: {
+          id?: string;
+          trainer_id: string;
+          training_plan_id: string;
+          name: string;
+          code: string;
+          description?: string | null;
+          position?: number;
+          status?: "active" | "archived";
+          created_at?: string;
+          updated_at?: string;
+        } & Record<string, unknown>;
+        Update: {
+          id?: string;
+          trainer_id?: string;
+          training_plan_id?: string;
+          name?: string;
+          code?: string;
+          description?: string | null;
+          position?: number;
+          status?: "active" | "archived";
+          created_at?: string;
+          updated_at?: string;
+        } & Record<string, unknown>;
+        Relationships: [
+          {
+            foreignKeyName: "training_plan_patterns_trainer_id_fkey";
+            columns: ["trainer_id"];
+            isOneToOne: false;
+            referencedRelation: "trainer_profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "training_plan_patterns_training_plan_id_fkey";
+            columns: ["training_plan_id"];
+            isOneToOne: false;
+            referencedRelation: "training_plans";
+            referencedColumns: ["id"];
+          }
+        ];
+      };
+      pattern_exercises: {
+        Row: {
+          id: string;
+          trainer_id: string;
+          pattern_id: string;
+          exercise_id: string | null;
+          name_snapshot: string;
+          position: number;
+          intensity_type: "none" | "rpe" | "rir" | "percent" | "time";
+          notes: string | null;
+          created_at: string;
+          updated_at: string;
+        } & Record<string, unknown>;
+        Insert: {
+          id?: string;
+          trainer_id: string;
+          pattern_id: string;
+          exercise_id?: string | null;
+          name_snapshot: string;
+          position?: number;
+          intensity_type?: "none" | "rpe" | "rir" | "percent" | "time";
+          notes?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        } & Record<string, unknown>;
+        Update: {
+          id?: string;
+          trainer_id?: string;
+          pattern_id?: string;
+          exercise_id?: string | null;
+          name_snapshot?: string;
+          position?: number;
+          intensity_type?: "none" | "rpe" | "rir" | "percent" | "time";
+          notes?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        } & Record<string, unknown>;
+        Relationships: [
+          {
+            foreignKeyName: "pattern_exercises_exercise_id_fkey";
+            columns: ["exercise_id"];
+            isOneToOne: false;
+            referencedRelation: "exercises";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "pattern_exercises_pattern_id_fkey";
+            columns: ["pattern_id"];
+            isOneToOne: false;
+            referencedRelation: "training_plan_patterns";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "pattern_exercises_trainer_id_fkey";
+            columns: ["trainer_id"];
+            isOneToOne: false;
+            referencedRelation: "trainer_profiles";
+            referencedColumns: ["id"];
+          }
+        ];
+      };
+      pattern_sets: {
+        Row: {
+          id: string;
+          trainer_id: string;
+          pattern_exercise_id: string;
+          position: number;
+          weight: number | null;
+          reps: number | null;
+          intensity_value: number | null;
+          notes: string | null;
+          created_at: string;
+          updated_at: string;
+        } & Record<string, unknown>;
+        Insert: {
+          id?: string;
+          trainer_id: string;
+          pattern_exercise_id: string;
+          position?: number;
+          weight?: number | null;
+          reps?: number | null;
+          intensity_value?: number | null;
+          notes?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        } & Record<string, unknown>;
+        Update: {
+          id?: string;
+          trainer_id?: string;
+          pattern_exercise_id?: string;
+          position?: number;
+          weight?: number | null;
+          reps?: number | null;
+          intensity_value?: number | null;
+          notes?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        } & Record<string, unknown>;
+        Relationships: [
+          {
+            foreignKeyName: "pattern_sets_pattern_exercise_id_fkey";
+            columns: ["pattern_exercise_id"];
+            isOneToOne: false;
+            referencedRelation: "pattern_exercises";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "pattern_sets_trainer_id_fkey";
+            columns: ["trainer_id"];
+            isOneToOne: false;
+            referencedRelation: "trainer_profiles";
+            referencedColumns: ["id"];
+          }
+        ];
+      };
+      training_plan_templates: {
+        Row: {
+          id: string;
+          trainer_id: string | null;
+          source_type: "system" | "custom";
+          name: string;
+          description: string | null;
+          duration_weeks: number;
+          sessions_per_week: number;
+          split_type: "full_body" | "upper_lower" | "push_pull_legs" | "powerlifting" | "custom";
+          suggested_weekdays: number[] | null;
+          category: string | null;
+          use_case: string | null;
+          status: "active" | "archived";
+          created_at: string;
+          updated_at: string;
+        } & Record<string, unknown>;
+        Insert: {
+          id?: string;
+          trainer_id?: string | null;
+          source_type: "system" | "custom";
+          name: string;
+          description?: string | null;
+          duration_weeks?: number;
+          sessions_per_week: number;
+          split_type: "full_body" | "upper_lower" | "push_pull_legs" | "powerlifting" | "custom";
+          suggested_weekdays?: number[] | null;
+          category?: string | null;
+          use_case?: string | null;
+          status?: "active" | "archived";
+          created_at?: string;
+          updated_at?: string;
+        } & Record<string, unknown>;
+        Update: {
+          id?: string;
+          trainer_id?: string | null;
+          source_type?: "system" | "custom";
+          name?: string;
+          description?: string | null;
+          duration_weeks?: number;
+          sessions_per_week?: number;
+          split_type?: "full_body" | "upper_lower" | "push_pull_legs" | "powerlifting" | "custom";
+          suggested_weekdays?: number[] | null;
+          category?: string | null;
+          use_case?: string | null;
+          status?: "active" | "archived";
+          created_at?: string;
+          updated_at?: string;
+        } & Record<string, unknown>;
+        Relationships: [
+          {
+            foreignKeyName: "training_plan_templates_trainer_id_fkey";
+            columns: ["trainer_id"];
+            isOneToOne: false;
+            referencedRelation: "trainer_profiles";
+            referencedColumns: ["id"];
+          }
+        ];
+      };
+      template_patterns: {
+        Row: {
+          id: string;
+          trainer_id: string | null;
+          template_id: string;
+          name: string;
+          code: string;
+          description: string | null;
+          position: number;
+          created_at: string;
+          updated_at: string;
+        } & Record<string, unknown>;
+        Insert: {
+          id?: string;
+          trainer_id?: string | null;
+          template_id: string;
+          name: string;
+          code: string;
+          description?: string | null;
+          position?: number;
+          created_at?: string;
+          updated_at?: string;
+        } & Record<string, unknown>;
+        Update: {
+          id?: string;
+          trainer_id?: string | null;
+          template_id?: string;
+          name?: string;
+          code?: string;
+          description?: string | null;
+          position?: number;
+          created_at?: string;
+          updated_at?: string;
+        } & Record<string, unknown>;
+        Relationships: [
+          {
+            foreignKeyName: "template_patterns_template_id_fkey";
+            columns: ["template_id"];
+            isOneToOne: false;
+            referencedRelation: "training_plan_templates";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "template_patterns_trainer_id_fkey";
+            columns: ["trainer_id"];
+            isOneToOne: false;
+            referencedRelation: "trainer_profiles";
+            referencedColumns: ["id"];
+          }
+        ];
+      };
+      template_exercises: {
+        Row: {
+          id: string;
+          trainer_id: string | null;
+          template_pattern_id: string;
+          exercise_id: string | null;
+          name_snapshot: string;
+          position: number;
+          intensity_type: "none" | "rpe" | "rir" | "percent" | "time";
+          notes: string | null;
+          created_at: string;
+          updated_at: string;
+        } & Record<string, unknown>;
+        Insert: {
+          id?: string;
+          trainer_id?: string | null;
+          template_pattern_id: string;
+          exercise_id?: string | null;
+          name_snapshot: string;
+          position?: number;
+          intensity_type?: "none" | "rpe" | "rir" | "percent" | "time";
+          notes?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        } & Record<string, unknown>;
+        Update: {
+          id?: string;
+          trainer_id?: string | null;
+          template_pattern_id?: string;
+          exercise_id?: string | null;
+          name_snapshot?: string;
+          position?: number;
+          intensity_type?: "none" | "rpe" | "rir" | "percent" | "time";
+          notes?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        } & Record<string, unknown>;
+        Relationships: [
+          {
+            foreignKeyName: "template_exercises_exercise_id_fkey";
+            columns: ["exercise_id"];
+            isOneToOne: false;
+            referencedRelation: "exercises";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "template_exercises_template_pattern_id_fkey";
+            columns: ["template_pattern_id"];
+            isOneToOne: false;
+            referencedRelation: "template_patterns";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "template_exercises_trainer_id_fkey";
+            columns: ["trainer_id"];
+            isOneToOne: false;
+            referencedRelation: "trainer_profiles";
+            referencedColumns: ["id"];
+          }
+        ];
+      };
+      template_sets: {
+        Row: {
+          id: string;
+          trainer_id: string | null;
+          template_exercise_id: string;
+          position: number;
+          weight: number | null;
+          reps: number | null;
+          intensity_value: number | null;
+          notes: string | null;
+          created_at: string;
+          updated_at: string;
+        } & Record<string, unknown>;
+        Insert: {
+          id?: string;
+          trainer_id?: string | null;
+          template_exercise_id: string;
+          position?: number;
+          weight?: number | null;
+          reps?: number | null;
+          intensity_value?: number | null;
+          notes?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        } & Record<string, unknown>;
+        Update: {
+          id?: string;
+          trainer_id?: string | null;
+          template_exercise_id?: string;
+          position?: number;
+          weight?: number | null;
+          reps?: number | null;
+          intensity_value?: number | null;
+          notes?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        } & Record<string, unknown>;
+        Relationships: [
+          {
+            foreignKeyName: "template_sets_template_exercise_id_fkey";
+            columns: ["template_exercise_id"];
+            isOneToOne: false;
+            referencedRelation: "template_exercises";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "template_sets_trainer_id_fkey";
             columns: ["trainer_id"];
             isOneToOne: false;
             referencedRelation: "trainer_profiles";

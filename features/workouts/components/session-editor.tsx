@@ -45,6 +45,20 @@ export async function SessionEditor({ detail, previousWorkout }: SessionEditorPr
 
       {!isReadonly ? <PreviousWorkoutPlaceholder workout={previousWorkout} /> : null}
 
+      <div className="space-y-4">
+        {detail.exercises.length > 0 ? (
+          detail.exercises.map((exercise) => (
+            <SessionExerciseCard key={exercise.id} exercise={exercise} readonly={isReadonly} />
+          ))
+        ) : (
+          <Card>
+            <CardContent className="p-4 text-sm text-muted-foreground">
+              Упражнений пока нет. Добавьте первое упражнение ниже.
+            </CardContent>
+          </Card>
+        )}
+      </div>
+
       {!isReadonly ? (
         <AddExerciseFromLibrary
           sessionId={detail.session.id}
@@ -52,12 +66,6 @@ export async function SessionEditor({ detail, previousWorkout }: SessionEditorPr
           categories={exerciseCategories}
         />
       ) : null}
-
-      <div className="space-y-4">
-        {detail.exercises.map((exercise) => (
-          <SessionExerciseCard key={exercise.id} exercise={exercise} readonly={isReadonly} />
-        ))}
-      </div>
 
       {!isReadonly ? <CompleteSessionButton sessionId={detail.session.id} /> : null}
     </div>

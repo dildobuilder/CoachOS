@@ -5,11 +5,19 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { getTrainerProfile } from "@/features/trainer/queries";
 import {
+  applyPatternSchema,
+  assignPatternSchema,
+  createPlanFromTemplateSchema,
+  patternExerciseUpdateSchema,
+  patternSetSchema,
+  planPatternSchema,
   plannedExerciseUpdateSchema,
   plannedSetSchema,
   schedulePlannedWorkoutSchema,
+  savePlanTemplateSchema,
   trainingPlanSchema
 } from "@/features/planning/schemas";
+import { getTrainingPlanTemplate } from "@/features/planning/queries";
 import { validateIntensityValue } from "@/features/workouts/schemas";
 import type { Tables, TablesInsert, TablesUpdate } from "@/lib/database.types";
 import { getReadableErrorMessage, isTransientNetworkError } from "@/lib/errors";
@@ -44,6 +52,40 @@ function scheduleFormDataToObject(formData: FormData) {
     duration_hours: formData.get("duration_hours"),
     title: formData.get("title"),
     notes: formData.get("notes")
+  };
+}
+
+function patternFormDataToObject(formData: FormData) {
+  return {
+    code: formData.get("code"),
+    name: formData.get("name"),
+    description: formData.get("description")
+  };
+}
+
+function assignPatternFormDataToObject(formData: FormData) {
+  return {
+    weekday: formData.get("weekday"),
+    pattern_id: formData.get("pattern_id")
+  };
+}
+
+function templateFormDataToObject(formData: FormData) {
+  return {
+    name: formData.get("name"),
+    description: formData.get("description"),
+    category: formData.get("category"),
+    use_case: formData.get("use_case")
+  };
+}
+
+function createFromTemplateFormDataToObject(formData: FormData) {
+  return {
+    template_id: formData.get("template_id"),
+    name: formData.get("name"),
+    starts_on: formData.get("starts_on"),
+    duration_weeks: formData.get("duration_weeks"),
+    training_weekdays: formData.getAll("training_weekdays")
   };
 }
 
@@ -118,6 +160,291 @@ export async function archiveTrainingPlan(planId: string) {
     redirect(`/clients/${plan.client_id}/plans`);
   } catch (error) {
     redirectActionError(error, "/dashboard");
+  }
+}
+
+export async function createTrainingPlanPattern(planId: string, formData: FormData) {
+  try {
+    const parsed = planPatternSchema.safeParse(patternFormDataToObject(formData));
+    const plan = await getTrainingPlanForAction(planId);
+
+    if (!parsed.success) {
+      redirect(`/clients/${plan.client_id}/plans/${plan.id}?error=${encodeURIComponent(parsed.error.issues[0]?.message ?? "Ошибка")}`);
+    }
+
+    const trainerId = await getUserId(`/clients/${plan.client_id}/plans/${plan.id}`);
+    const position = await getNextPatternPosition(planId);
+    const supabase = createSupabaseClient();
+    const { data: pattern, error } = await supabase
+      .from("training_plan_patterns")
+      .insert({
+        trainer_id: trainerId,
+        training_plan_id: planId,
+        code: parsed.data.code,
+        name: parsed.data.name,
+        description: parsed.data.description,
+        position
+      } satisfies TablesInsert<"training_plan_patterns">)
+      .select("id")
+      .single();
+
+    if (error || !pattern) {
+      redirect(`/clients/${plan.client_id}/plans/${plan.id}?error=${encodeURIComponent(error?.message ?? "Pattern not created")}`);
+    }
+
+    revalidatePath(`/clients/${plan.client_id}/plans/${plan.id}`);
+    redirect(`/clients/${plan.client_id}/plans/${plan.id}/patterns/${pattern.id}`);
+  } catch (error) {
+    redirectActionError(error, "/clients");
+  }
+}
+
+export async function updateTrainingPlanPattern(patternId: string, formData: FormData) {
+  try {
+    const parsed = planPatternSchema.safeParse(patternFormDataToObject(formData));
+    const pattern = await getPatternForAction(patternId);
+
+    if (!parsed.success) {
+      redirect(patternErrorPath(pattern, parsed.error.issues[0]?.message ?? "Ошибка"));
+    }
+
+    const supabase = createSupabaseClient();
+    const { error } = await supabase
+      .from("training_plan_patterns")
+      .update({
+        code: parsed.data.code,
+        name: parsed.data.name,
+        description: parsed.data.description
+      } satisfies TablesUpdate<"training_plan_patterns">)
+      .eq("id", patternId);
+
+    if (error) {
+      redirect(patternErrorPath(pattern, error.message));
+    }
+
+    revalidatePath(patternPath(pattern));
+  } catch (error) {
+    redirectActionError(error, "/clients");
+  }
+}
+
+export async function archiveTrainingPlanPattern(patternId: string) {
+  try {
+    const pattern = await getPatternForAction(patternId);
+    const supabase = createSupabaseClient();
+    const { error } = await supabase
+      .from("training_plan_patterns")
+      .update({ status: "archived" } satisfies TablesUpdate<"training_plan_patterns">)
+      .eq("id", patternId);
+
+    if (error) {
+      redirect(patternErrorPath(pattern, error.message));
+    }
+
+    revalidatePath(`/clients/${pattern.client_id}/plans/${pattern.training_plan_id}`);
+    redirect(`/clients/${pattern.client_id}/plans/${pattern.training_plan_id}`);
+  } catch (error) {
+    redirectActionError(error, "/clients");
+  }
+}
+
+export async function addExerciseToPattern(patternId: string, exerciseId: string) {
+  try {
+    const trainerId = await getUserId("/clients");
+    const pattern = await getPatternForAction(patternId);
+    const exercise = await getExerciseForPlanning(exerciseId);
+    const position = await getNextPatternExercisePosition(patternId);
+    const supabase = createSupabaseClient();
+    const { error } = await supabase.from("pattern_exercises").insert({
+      trainer_id: trainerId,
+      pattern_id: patternId,
+      exercise_id: exercise.id,
+      name_snapshot: exercise.name,
+      position,
+      intensity_type: exercise.primary_category === "Мобилити" ? "none" : exercise.default_intensity_type,
+      notes: exercise.short_description
+    } satisfies TablesInsert<"pattern_exercises">);
+
+    if (error) {
+      redirect(patternErrorPath(pattern, error.message));
+    }
+
+    revalidatePath(patternPath(pattern));
+  } catch (error) {
+    redirectActionError(error, "/clients");
+  }
+}
+
+export async function updatePatternExercise(patternExerciseId: string, formData: FormData) {
+  try {
+    const parsed = patternExerciseUpdateSchema.safeParse({
+      intensity_type: formData.get("intensity_type") || "none",
+      notes: formData.get("notes")
+    });
+    const { exercise, pattern } = await getPatternExerciseForAction(patternExerciseId);
+
+    if (!parsed.success) {
+      redirect(patternErrorPath(pattern, parsed.error.issues[0]?.message ?? "Ошибка"));
+    }
+
+    const supabase = createSupabaseClient();
+    const { error } = await supabase
+      .from("pattern_exercises")
+      .update({
+        intensity_type: parsed.data.intensity_type,
+        notes: parsed.data.notes
+      } satisfies TablesUpdate<"pattern_exercises">)
+      .eq("id", exercise.id);
+
+    if (error) {
+      redirect(patternErrorPath(pattern, error.message));
+    }
+
+    revalidatePath(patternPath(pattern));
+  } catch (error) {
+    redirectActionError(error, "/clients");
+  }
+}
+
+export async function deletePatternExercise(patternExerciseId: string) {
+  try {
+    const { exercise, pattern } = await getPatternExerciseForAction(patternExerciseId);
+    const supabase = createSupabaseClient();
+    const { error } = await supabase.from("pattern_exercises").delete().eq("id", exercise.id);
+
+    if (error) {
+      redirect(patternErrorPath(pattern, error.message));
+    }
+
+    revalidatePath(patternPath(pattern));
+  } catch (error) {
+    redirectActionError(error, "/clients");
+  }
+}
+
+export async function addPatternSet(patternExerciseId: string, formData: FormData) {
+  try {
+    const parsed = patternSetSchema.safeParse(setFormDataToObject(formData));
+    const { exercise, pattern } = await getPatternExerciseForAction(patternExerciseId);
+
+    if (!parsed.success) {
+      redirect(patternErrorPath(pattern, parsed.error.issues[0]?.message ?? "Ошибка"));
+    }
+
+    const trainerId = await getUserId(patternPath(pattern));
+    const position = await getNextPatternSetPosition(patternExerciseId);
+    const intensityValue = validateIntensityValue(exercise.intensity_type, parsed.data.intensity_value);
+    const supabase = createSupabaseClient();
+    const { error } = await supabase.from("pattern_sets").insert({
+      trainer_id: trainerId,
+      pattern_exercise_id: patternExerciseId,
+      position,
+      weight: parsed.data.weight,
+      reps: parsed.data.reps,
+      intensity_value: intensityValue,
+      notes: parsed.data.notes
+    } satisfies TablesInsert<"pattern_sets">);
+
+    if (error) {
+      redirect(patternErrorPath(pattern, error.message));
+    }
+
+    revalidatePath(patternPath(pattern));
+  } catch (error) {
+    redirectActionError(error, "/clients");
+  }
+}
+
+export async function updatePatternSet(patternSetId: string, formData: FormData) {
+  try {
+    const parsed = patternSetSchema.safeParse(setFormDataToObject(formData));
+    const { set, exercise, pattern } = await getPatternSetForAction(patternSetId);
+
+    if (!parsed.success) {
+      redirect(patternErrorPath(pattern, parsed.error.issues[0]?.message ?? "Ошибка"));
+    }
+
+    const intensityValue = validateIntensityValue(exercise.intensity_type, parsed.data.intensity_value);
+    const supabase = createSupabaseClient();
+    const { error } = await supabase
+      .from("pattern_sets")
+      .update({
+        weight: parsed.data.weight,
+        reps: parsed.data.reps,
+        intensity_value: intensityValue,
+        notes: parsed.data.notes,
+        position: set.position
+      } satisfies TablesUpdate<"pattern_sets">)
+      .eq("id", patternSetId);
+
+    if (error) {
+      redirect(patternErrorPath(pattern, error.message));
+    }
+
+    revalidatePath(patternPath(pattern));
+  } catch (error) {
+    redirectActionError(error, "/clients");
+  }
+}
+
+export async function deletePatternSet(patternSetId: string) {
+  try {
+    const { set, pattern } = await getPatternSetForAction(patternSetId);
+    const supabase = createSupabaseClient();
+    const { error } = await supabase.from("pattern_sets").delete().eq("id", set.id);
+
+    if (error) {
+      redirect(patternErrorPath(pattern, error.message));
+    }
+
+    revalidatePath(patternPath(pattern));
+  } catch (error) {
+    redirectActionError(error, "/clients");
+  }
+}
+
+export async function assignPatternToWeekday(planId: string, formData: FormData) {
+  try {
+    const parsed = assignPatternSchema.safeParse(assignPatternFormDataToObject(formData));
+    const plan = await getTrainingPlanForAction(planId);
+
+    if (!parsed.success) {
+      redirect(`/clients/${plan.client_id}/plans/${plan.id}?error=${encodeURIComponent(parsed.error.issues[0]?.message ?? "Ошибка")}`);
+    }
+
+    const pattern = await getPatternForAction(parsed.data.pattern_id);
+
+    if (pattern.training_plan_id !== planId) {
+      redirect(`/clients/${plan.client_id}/plans/${plan.id}?error=${encodeURIComponent("Pattern belongs to another plan")}`);
+    }
+
+    const workouts = await getPlanWorkoutsForWeekday(planId, parsed.data.weekday);
+    await replacePlannedWorkoutContentFromPattern(pattern, workouts.filter((workout) => workout.status === "planned"));
+
+    revalidatePath(`/clients/${plan.client_id}/plans/${plan.id}`);
+    revalidatePath(`/clients/${plan.client_id}/calendar`);
+  } catch (error) {
+    redirectActionError(error, "/clients");
+  }
+}
+
+export async function applyPatternToPlannedWorkouts(patternId: string, formData: FormData) {
+  try {
+    const parsed = applyPatternSchema.safeParse({ scope: formData.get("scope") || "future_only" });
+    const pattern = await getPatternForAction(patternId);
+
+    if (!parsed.success) {
+      redirect(patternErrorPath(pattern, parsed.error.issues[0]?.message ?? "Ошибка"));
+    }
+
+    const workouts = await getEligibleWorkoutsForPatternApply(pattern, parsed.data.scope);
+    await replacePlannedWorkoutContentFromPattern(pattern, workouts);
+
+    revalidatePath(patternPath(pattern));
+    revalidatePath(`/clients/${pattern.client_id}/plans/${pattern.training_plan_id}`);
+    revalidatePath(`/clients/${pattern.client_id}/calendar`);
+  } catch (error) {
+    redirectActionError(error, "/clients");
   }
 }
 
@@ -374,6 +701,149 @@ export async function cancelPlannedWorkout(plannedWorkoutId: string) {
   }
 }
 
+export async function saveTrainingPlanAsTemplate(planId: string, formData: FormData) {
+  try {
+    const parsed = savePlanTemplateSchema.safeParse(templateFormDataToObject(formData));
+    const plan = await getTrainingPlanForAction(planId);
+
+    if (!parsed.success) {
+      redirect(`/clients/${plan.client_id}/plans/${plan.id}?error=${encodeURIComponent(parsed.error.issues[0]?.message ?? "Ошибка")}`);
+    }
+
+    const trainerId = await getUserId(`/clients/${plan.client_id}/plans/${plan.id}`);
+    const supabase = createSupabaseClient();
+    const { data: template, error } = await supabase
+      .from("training_plan_templates")
+      .insert({
+        trainer_id: trainerId,
+        source_type: "custom",
+        name: parsed.data.name,
+        description: parsed.data.description,
+        duration_weeks: plan.duration_weeks,
+        sessions_per_week: plan.sessions_per_week,
+        split_type: plan.split_type,
+        suggested_weekdays: plan.training_weekdays,
+        category: parsed.data.category,
+        use_case: parsed.data.use_case,
+        status: "active"
+      } satisfies TablesInsert<"training_plan_templates">)
+      .select("id")
+      .single();
+
+    if (error || !template) {
+      redirect(`/clients/${plan.client_id}/plans/${plan.id}?error=${encodeURIComponent(error?.message ?? "Template not created")}`);
+    }
+
+    await copyPlanPatternsToTemplate(plan.id, template.id, trainerId);
+    revalidatePath(`/clients/${plan.client_id}/plans/${plan.id}`);
+    redirect(`/clients/${plan.client_id}/plans/${plan.id}?success=${encodeURIComponent("Шаблон сохранен")}`);
+  } catch (error) {
+    redirectActionError(error, "/clients");
+  }
+}
+
+export async function createPlanFromTemplate(clientId: string, formData: FormData) {
+  try {
+    const parsed = createPlanFromTemplateSchema.safeParse(createFromTemplateFormDataToObject(formData));
+
+    if (!parsed.success) {
+      redirect(`/clients/${clientId}/plans/templates?error=${encodeURIComponent(parsed.error.issues[0]?.message ?? "Ошибка")}`);
+    }
+
+    const trainerId = await getUserId(`/clients/${clientId}/plans/templates`);
+    await ensureClientOwnership(clientId, trainerId);
+    const template = await getTrainingPlanTemplate(parsed.data.template_id);
+    const startsOn = parsed.data.starts_on;
+    const endsOn = addDays(startsOn, parsed.data.duration_weeks * 7 - 1);
+    const supabase = createSupabaseClient();
+    const { data: plan, error } = await supabase
+      .from("training_plans")
+      .insert({
+        trainer_id: trainerId,
+        client_id: clientId,
+        name: parsed.data.name ?? template.name,
+        duration_weeks: parsed.data.duration_weeks,
+        starts_on: startsOn,
+        ends_on: endsOn,
+        sessions_per_week: parsed.data.sessions_per_week,
+        training_weekdays: parsed.data.training_weekdays,
+        split_type: template.split_type,
+        notes: template.description
+      } satisfies TablesInsert<"training_plans">)
+      .select("*")
+      .single();
+
+    if (error || !plan) {
+      redirect(`/clients/${clientId}/plans/templates?error=${encodeURIComponent(error?.message ?? "Plan not created")}`);
+    }
+
+    const patternMap = await copyTemplatePatternsToPlan(template, plan, trainerId);
+    const workouts = generatePlannedWorkouts(plan, parsed.data.training_weekdays).map((workout) => {
+      const templatePattern = template.template_patterns[(workout.day_number - 1) % Math.max(template.template_patterns.length, 1)];
+      const patternId = templatePattern ? patternMap.get(templatePattern.id) ?? null : null;
+
+      return {
+        ...workout,
+        trainer_id: trainerId,
+        training_plan_id: plan.id,
+        client_id: clientId,
+        pattern_id: patternId
+      };
+    }) satisfies TablesInsert<"planned_workouts">[];
+    const { data: createdWorkouts, error: workoutsError } = await supabase
+      .from("planned_workouts")
+      .insert(workouts)
+      .select("*");
+
+    if (workoutsError) {
+      redirect(`/clients/${clientId}/plans/${plan.id}?error=${encodeURIComponent(workoutsError.message)}`);
+    }
+
+    for (const workout of createdWorkouts ?? []) {
+      if (workout.pattern_id) {
+        const pattern = await getPatternForAction(workout.pattern_id);
+        await replacePlannedWorkoutContentFromPattern(pattern, [workout]);
+      }
+    }
+
+    revalidatePath(`/clients/${clientId}/plans`);
+    revalidatePath(`/clients/${clientId}/calendar`);
+    redirect(`/clients/${clientId}/plans/${plan.id}`);
+  } catch (error) {
+    redirectActionError(error, `/clients/${clientId}/plans/templates`);
+  }
+}
+
+export async function archiveTrainingPlanTemplate(templateId: string) {
+  try {
+    const trainerId = await getUserId("/clients");
+    const supabase = createSupabaseClient();
+    const { error } = await supabase
+      .from("training_plan_templates")
+      .update({ status: "archived" } satisfies TablesUpdate<"training_plan_templates">)
+      .eq("id", templateId)
+      .eq("trainer_id", trainerId)
+      .eq("source_type", "custom");
+
+    if (error) {
+      redirect(`/clients?error=${encodeURIComponent(error.message)}`);
+    }
+
+    revalidatePath("/clients");
+  } catch (error) {
+    redirectActionError(error, "/clients");
+  }
+}
+
+type PatternForAction = Tables<"training_plan_patterns"> & {
+  client_id: string;
+};
+
+type PatternExerciseForAction = {
+  exercise: Tables<"pattern_exercises">;
+  pattern: PatternForAction;
+};
+
 async function getUserId(errorPath: string) {
   const supabase = createSupabaseClient();
   let response;
@@ -398,6 +868,59 @@ async function getUserId(errorPath: string) {
   }
 
   return user.id;
+}
+
+async function getPatternForAction(patternId: string): Promise<PatternForAction> {
+  const supabase = createSupabaseClient();
+  const { data, error } = await supabase
+    .from("training_plan_patterns")
+    .select("*, training_plans(client_id)")
+    .eq("id", patternId)
+    .maybeSingle();
+
+  if (error || !data) {
+    throw new Error(error?.message ?? "Pattern not found");
+  }
+
+  return {
+    ...(data as Tables<"training_plan_patterns"> & { training_plans: { client_id: string } | null }),
+    client_id: (data as { training_plans: { client_id: string } | null }).training_plans?.client_id ?? ""
+  };
+}
+
+async function getPatternExerciseForAction(patternExerciseId: string): Promise<PatternExerciseForAction> {
+  const supabase = createSupabaseClient();
+  const { data, error } = await supabase
+    .from("pattern_exercises")
+    .select("*")
+    .eq("id", patternExerciseId)
+    .maybeSingle();
+
+  if (error || !data) {
+    throw new Error(error?.message ?? "Pattern exercise not found");
+  }
+
+  return {
+    exercise: data,
+    pattern: await getPatternForAction(data.pattern_id)
+  };
+}
+
+async function getPatternSetForAction(patternSetId: string) {
+  const supabase = createSupabaseClient();
+  const { data: set, error } = await supabase.from("pattern_sets").select("*").eq("id", patternSetId).maybeSingle();
+
+  if (error || !set) {
+    throw new Error(error?.message ?? "Pattern set not found");
+  }
+
+  const result = await getPatternExerciseForAction(set.pattern_exercise_id);
+
+  return {
+    set,
+    exercise: result.exercise,
+    pattern: result.pattern
+  };
 }
 
 async function ensureClientOwnership(clientId: string, trainerId: string) {
@@ -501,6 +1024,45 @@ async function getNextPlannedExercisePosition(plannedWorkoutId: string) {
   return (data?.position ?? 0) + 1;
 }
 
+async function getNextPatternPosition(planId: string) {
+  const supabase = createSupabaseClient();
+  const { data } = await supabase
+    .from("training_plan_patterns")
+    .select("position")
+    .eq("training_plan_id", planId)
+    .order("position", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  return (data?.position ?? 0) + 1;
+}
+
+async function getNextPatternExercisePosition(patternId: string) {
+  const supabase = createSupabaseClient();
+  const { data } = await supabase
+    .from("pattern_exercises")
+    .select("position")
+    .eq("pattern_id", patternId)
+    .order("position", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  return (data?.position ?? 0) + 1;
+}
+
+async function getNextPatternSetPosition(patternExerciseId: string) {
+  const supabase = createSupabaseClient();
+  const { data } = await supabase
+    .from("pattern_sets")
+    .select("position")
+    .eq("pattern_exercise_id", patternExerciseId)
+    .order("position", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  return (data?.position ?? 0) + 1;
+}
+
 async function getNextPlannedSetPosition(plannedExerciseId: string) {
   const supabase = createSupabaseClient();
   const { data } = await supabase
@@ -512,6 +1074,280 @@ async function getNextPlannedSetPosition(plannedExerciseId: string) {
     .maybeSingle();
 
   return (data?.position ?? 0) + 1;
+}
+
+async function getPlanWorkoutsForWeekday(planId: string, weekday: number): Promise<Tables<"planned_workouts">[]> {
+  const supabase = createSupabaseClient();
+  const { data, error } = await supabase
+    .from("planned_workouts")
+    .select("*")
+    .eq("training_plan_id", planId)
+    .order("planned_date", { ascending: true });
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return (data ?? []).filter((workout) => getIsoWeekday(workout.planned_date) === weekday);
+}
+
+async function getEligibleWorkoutsForPatternApply(pattern: PatternForAction, scope: "future_only" | "all_not_started") {
+  const supabase = createSupabaseClient();
+  let query = supabase
+    .from("planned_workouts")
+    .select("*")
+    .eq("training_plan_id", pattern.training_plan_id)
+    .eq("pattern_id", pattern.id)
+    .eq("status", "planned")
+    .order("planned_date", { ascending: true });
+
+  if (scope === "future_only") {
+    query = query.gte("planned_date", todayDate());
+  }
+
+  const { data, error } = await query;
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return data ?? [];
+}
+
+async function replacePlannedWorkoutContentFromPattern(pattern: PatternForAction, workouts: Tables<"planned_workouts">[]) {
+  const eligibleWorkouts = workouts.filter((workout) => workout.status === "planned");
+
+  if (eligibleWorkouts.length === 0) {
+    return;
+  }
+
+  const supabase = createSupabaseClient();
+  const { data: patternExercises, error } = await supabase
+    .from("pattern_exercises")
+    .select("*, pattern_sets(*)")
+    .eq("pattern_id", pattern.id)
+    .order("position", { ascending: true });
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  for (const workout of eligibleWorkouts) {
+    const { data: existingExercises, error: existingError } = await supabase
+      .from("planned_exercises")
+      .select("id")
+      .eq("planned_workout_id", workout.id);
+
+    if (existingError) {
+      throw new Error(existingError.message);
+    }
+
+    if ((existingExercises ?? []).length > 0) {
+      const { error: deleteError } = await supabase
+        .from("planned_exercises")
+        .delete()
+        .in(
+          "id",
+          (existingExercises ?? []).map((exercise) => exercise.id)
+        );
+
+      if (deleteError) {
+        throw new Error(deleteError.message);
+      }
+    }
+
+    const { error: workoutUpdateError } = await supabase
+      .from("planned_workouts")
+      .update({ pattern_id: pattern.id, name: pattern.name } satisfies TablesUpdate<"planned_workouts">)
+      .eq("id", workout.id);
+
+    if (workoutUpdateError) {
+      throw new Error(workoutUpdateError.message);
+    }
+
+    for (const patternExercise of patternExercises ?? []) {
+      const { data: plannedExercise, error: exerciseError } = await supabase
+        .from("planned_exercises")
+        .insert({
+          trainer_id: pattern.trainer_id,
+          planned_workout_id: workout.id,
+          exercise_id: patternExercise.exercise_id,
+          name_snapshot: patternExercise.name_snapshot,
+          position: patternExercise.position,
+          intensity_type: patternExercise.intensity_type,
+          notes: patternExercise.notes
+        } satisfies TablesInsert<"planned_exercises">)
+        .select("id")
+        .single();
+
+      if (exerciseError || !plannedExercise) {
+        throw new Error(exerciseError?.message ?? "Could not copy pattern exercise");
+      }
+
+      const sets = [...(patternExercise.pattern_sets ?? [])].sort((a, b) => a.position - b.position);
+
+      if (sets.length > 0) {
+        const { error: setsError } = await supabase.from("planned_sets").insert(
+          sets.map((set) => ({
+            trainer_id: pattern.trainer_id,
+            planned_exercise_id: plannedExercise.id,
+            position: set.position,
+            weight: set.weight,
+            reps: set.reps,
+            intensity_value: set.intensity_value,
+            notes: set.notes
+          })) satisfies TablesInsert<"planned_sets">[]
+        );
+
+        if (setsError) {
+          throw new Error(setsError.message);
+        }
+      }
+    }
+  }
+}
+
+async function copyPlanPatternsToTemplate(planId: string, templateId: string, trainerId: string) {
+  const supabase = createSupabaseClient();
+  const { data: patterns, error } = await supabase
+    .from("training_plan_patterns")
+    .select("*, pattern_exercises(*, pattern_sets(*))")
+    .eq("training_plan_id", planId)
+    .neq("status", "archived")
+    .order("position", { ascending: true });
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  for (const pattern of patterns ?? []) {
+    const { data: templatePattern, error: patternError } = await supabase
+      .from("template_patterns")
+      .insert({
+        trainer_id: trainerId,
+        template_id: templateId,
+        name: pattern.name,
+        code: pattern.code,
+        description: pattern.description,
+        position: pattern.position
+      } satisfies TablesInsert<"template_patterns">)
+      .select("id")
+      .single();
+
+    if (patternError || !templatePattern) {
+      throw new Error(patternError?.message ?? "Could not copy template pattern");
+    }
+
+    for (const exercise of pattern.pattern_exercises ?? []) {
+      const { data: templateExercise, error: exerciseError } = await supabase
+        .from("template_exercises")
+        .insert({
+          trainer_id: trainerId,
+          template_pattern_id: templatePattern.id,
+          exercise_id: exercise.exercise_id,
+          name_snapshot: exercise.name_snapshot,
+          position: exercise.position,
+          intensity_type: exercise.intensity_type,
+          notes: exercise.notes
+        } satisfies TablesInsert<"template_exercises">)
+        .select("id")
+        .single();
+
+      if (exerciseError || !templateExercise) {
+        throw new Error(exerciseError?.message ?? "Could not copy template exercise");
+      }
+
+      const sets = [...(exercise.pattern_sets ?? [])].sort((a, b) => a.position - b.position);
+
+      if (sets.length > 0) {
+        const { error: setsError } = await supabase.from("template_sets").insert(
+          sets.map((set) => ({
+            trainer_id: trainerId,
+            template_exercise_id: templateExercise.id,
+            position: set.position,
+            weight: set.weight,
+            reps: set.reps,
+            intensity_value: set.intensity_value,
+            notes: set.notes
+          })) satisfies TablesInsert<"template_sets">[]
+        );
+
+        if (setsError) {
+          throw new Error(setsError.message);
+        }
+      }
+    }
+  }
+}
+
+async function copyTemplatePatternsToPlan(
+  template: Awaited<ReturnType<typeof getTrainingPlanTemplate>>,
+  plan: Tables<"training_plans">,
+  trainerId: string
+) {
+  const supabase = createSupabaseClient();
+  const patternMap = new Map<string, string>();
+
+  for (const templatePattern of template.template_patterns) {
+    const { data: pattern, error } = await supabase
+      .from("training_plan_patterns")
+      .insert({
+        trainer_id: trainerId,
+        training_plan_id: plan.id,
+        name: templatePattern.name,
+        code: templatePattern.code,
+        description: templatePattern.description,
+        position: templatePattern.position
+      } satisfies TablesInsert<"training_plan_patterns">)
+      .select("id")
+      .single();
+
+    if (error || !pattern) {
+      throw new Error(error?.message ?? "Could not copy pattern");
+    }
+
+    patternMap.set(templatePattern.id, pattern.id);
+
+    for (const templateExercise of templatePattern.template_exercises) {
+      const { data: patternExercise, error: exerciseError } = await supabase
+        .from("pattern_exercises")
+        .insert({
+          trainer_id: trainerId,
+          pattern_id: pattern.id,
+          exercise_id: templateExercise.exercise_id,
+          name_snapshot: templateExercise.name_snapshot,
+          position: templateExercise.position,
+          intensity_type: templateExercise.intensity_type,
+          notes: templateExercise.notes
+        } satisfies TablesInsert<"pattern_exercises">)
+        .select("id")
+        .single();
+
+      if (exerciseError || !patternExercise) {
+        throw new Error(exerciseError?.message ?? "Could not copy pattern exercise");
+      }
+
+      if (templateExercise.template_sets.length > 0) {
+        const { error: setsError } = await supabase.from("pattern_sets").insert(
+          templateExercise.template_sets.map((set) => ({
+            trainer_id: trainerId,
+            pattern_exercise_id: patternExercise.id,
+            position: set.position,
+            weight: set.weight,
+            reps: set.reps,
+            intensity_value: set.intensity_value,
+            notes: set.notes
+          })) satisfies TablesInsert<"pattern_sets">[]
+        );
+
+        if (setsError) {
+          throw new Error(setsError.message);
+        }
+      }
+    }
+  }
+
+  return patternMap;
 }
 
 async function hasCalendarConflict({
@@ -620,6 +1456,15 @@ function addDays(dateValue: string, days: number) {
   return `${resultYear}-${resultMonth}-${resultDay}`;
 }
 
+function todayDate() {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, "0");
+  const day = String(now.getDate()).padStart(2, "0");
+
+  return `${year}-${month}-${day}`;
+}
+
 function formDateTimeToUtc(dateValue: string, timeValue: string, timezone: string) {
   const [year, month, day] = dateValue.split("-").map(Number);
   const [hour, minute] = timeValue.split(":").map(Number);
@@ -655,6 +1500,14 @@ function getTimeZoneOffsetMs(date: Date, timeZone: string) {
 
 function plannedWorkoutPath(workout: Pick<Tables<"planned_workouts">, "client_id" | "id">) {
   return `/clients/${workout.client_id}/planned-workouts/${workout.id}`;
+}
+
+function patternPath(pattern: Pick<PatternForAction, "client_id" | "training_plan_id" | "id">) {
+  return `/clients/${pattern.client_id}/plans/${pattern.training_plan_id}/patterns/${pattern.id}`;
+}
+
+function patternErrorPath(pattern: Pick<PatternForAction, "client_id" | "training_plan_id" | "id">, message: string) {
+  return `${patternPath(pattern)}?error=${encodeURIComponent(message)}`;
 }
 
 function plannedWorkoutErrorPath(workout: Pick<Tables<"planned_workouts">, "client_id" | "id">, message: string) {
