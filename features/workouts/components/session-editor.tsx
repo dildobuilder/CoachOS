@@ -7,11 +7,11 @@ import { getAvailableExercises, getExerciseCategories } from "@/features/exercis
 import { CompleteSessionButton } from "@/features/workouts/components/complete-session-button";
 import { PreviousWorkoutPlaceholder } from "@/features/workouts/components/previous-workout-placeholder";
 import { SessionExerciseCard } from "@/features/workouts/components/session-exercise-card";
-import type { WorkoutSessionDetail } from "@/features/workouts/queries";
+import type { PreviousCompletedWorkoutResult, WorkoutSessionDetail } from "@/features/workouts/queries";
 
 type SessionEditorProps = {
   detail: WorkoutSessionDetail;
-  previousWorkout: WorkoutSessionDetail | null;
+  previousWorkout: PreviousCompletedWorkoutResult | null;
 };
 
 export async function SessionEditor({ detail, previousWorkout }: SessionEditorProps) {
@@ -43,7 +43,7 @@ export async function SessionEditor({ detail, previousWorkout }: SessionEditorPr
         </CardContent>
       </Card>
 
-      {!isReadonly ? <PreviousWorkoutPlaceholder workout={previousWorkout} /> : null}
+      {!isReadonly && previousWorkout ? <PreviousWorkoutPlaceholder result={previousWorkout} /> : null}
 
       <div className="space-y-4">
         {detail.exercises.length > 0 ? (

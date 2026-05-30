@@ -146,6 +146,17 @@ export async function archiveTrainingPlan(planId: string) {
     const trainerId = await getUserId("/dashboard");
     const plan = await getTrainingPlanForAction(planId);
     const supabase = createSupabaseClient();
+    const { error: workoutsError } = await supabase
+      .from("planned_workouts")
+      .update({ status: "cancelled" } satisfies TablesUpdate<"planned_workouts">)
+      .eq("training_plan_id", planId)
+      .eq("trainer_id", trainerId)
+      .eq("status", "planned");
+
+    if (workoutsError) {
+      redirect(`/clients/${plan.client_id}/plans/${plan.id}?error=${encodeURIComponent(workoutsError.message)}`);
+    }
+
     const { error } = await supabase
       .from("training_plans")
       .update({ status: "archived" } satisfies TablesUpdate<"training_plans">)
@@ -157,6 +168,8 @@ export async function archiveTrainingPlan(planId: string) {
     }
 
     revalidatePath(`/clients/${plan.client_id}/plans`);
+    revalidatePath(`/clients/${plan.client_id}/calendar`);
+    revalidatePath("/calendar");
     redirect(`/clients/${plan.client_id}/plans`);
   } catch (error) {
     redirectActionError(error, "/dashboard");

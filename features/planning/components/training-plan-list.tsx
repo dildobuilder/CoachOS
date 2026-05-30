@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { ArchiveTrainingPlanButton } from "@/features/planning/components/archive-training-plan-button";
 import type { TrainingPlanRow } from "@/features/planning/queries";
 
 type TrainingPlanListProps = {
@@ -34,9 +35,12 @@ export function TrainingPlanList({ clientId, plans }: TrainingPlanListProps) {
                 {formatDate(plan.starts_on)} - {formatDate(plan.ends_on)} · {plan.sessions_per_week} трен./нед.
               </p>
             </div>
-            <Button asChild variant="outline">
-              <Link href={`/clients/${clientId}/plans/${plan.id}`}>Открыть</Link>
-            </Button>
+            <div className="flex flex-wrap gap-2">
+              <Button asChild variant="outline" size="sm">
+                <Link href={`/clients/${clientId}/plans/${plan.id}`}>Открыть</Link>
+              </Button>
+              <ArchiveTrainingPlanButton planId={plan.id} />
+            </div>
           </CardContent>
         </Card>
       ))}

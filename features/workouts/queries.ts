@@ -22,6 +22,13 @@ export type WorkoutSessionDetail = {
   exercises: SessionExerciseWithSets[];
 };
 
+export type PreviousWorkoutPattern = Pick<Tables<"training_plan_patterns">, "id" | "code" | "name">;
+
+export type PreviousCompletedWorkoutResult = {
+  workout: WorkoutSessionDetail | null;
+  pattern: PreviousWorkoutPattern | null;
+};
+
 export type WorkoutSessionDetailResult = {
   detail: WorkoutSessionDetail | null;
   error: string | null;
@@ -154,4 +161,73 @@ export async function getPreviousCompletedWorkout(
   const history = await getClientSessionHistory(clientId);
 
   return history.find((detail) => detail.session.id !== currentSessionId) ?? null;
+}
+
+export async function getPreviousCompletedWorkoutForSession(sessionId: string): Promise<PreviousCompletedWorkoutResult> {
+  const supabase = createClient();
+  const { data: currentSession, error } = await retryResultOnTransientError(() =>
+    supabase
+      .from("workout_sessions")
+      .select("id, client_id, started_at, planned_workout_id")
+      .eq("id", sessionId)
+      .maybeSingle()
+  );
+
+  if (error || !currentSession) {
+    return { workout: null, pattern: null };
+  }
+
+  const plannedWorkoutId = currentSession.planned_workout_id;
+
+  if (!plannedWorkoutId) {
+    return {
+      workout: await getPreviousCompletedWorkout(currentSession.client_id, currentSession.id),
+      pattern: null
+    };
+  }
+
+  const { data: plannedWorkout, error: plannedError } = await retryResultOnTransientError(() =>
+    supabase
+      .from("planned_workouts")
+      .select("pattern_id, training_plan_patterns(id, code, name)")
+      .eq("id", plannedWorkoutId)
+      .maybeSingle()
+  );
+
+  const patternId = plannedWorkout?.pattern_id;
+
+  if (plannedError || !patternId) {
+    return {
+      workout: await getPreviousCompletedWorkout(currentSession.client_id, currentSession.id),
+      pattern: null
+    };
+  }
+
+  const pattern = plannedWorkout.training_plan_patterns as PreviousWorkoutPattern | null;
+  const { data: previousSession, error: previousError } = await retryResultOnTransientError(() =>
+    supabase
+      .from("workout_sessions")
+      .select("id, planned_workouts!inner(pattern_id)")
+      .eq("client_id", currentSession.client_id)
+      .eq("status", "completed")
+      .lt("started_at", currentSession.started_at)
+      .eq("planned_workouts.pattern_id", patternId)
+      .order("started_at", { ascending: false })
+      .limit(1)
+      .maybeSingle()
+  );
+
+  if (previousError || !previousSession) {
+    return {
+      workout: null,
+      pattern
+    };
+  }
+
+  const previousDetail = await getWorkoutSessionResult(previousSession.id);
+
+  return {
+    workout: previousDetail.detail,
+    pattern
+  };
 }

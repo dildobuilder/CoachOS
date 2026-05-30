@@ -3,7 +3,7 @@ import { FormError } from "@/components/feedback/form-error";
 import { PageHeader } from "@/components/layout/page-header";
 import { Button } from "@/components/ui/button";
 import { SessionEditor } from "@/features/workouts/components/session-editor";
-import { getPreviousCompletedWorkout, getWorkoutSessionResult } from "@/features/workouts/queries";
+import { getPreviousCompletedWorkoutForSession, getWorkoutSessionResult } from "@/features/workouts/queries";
 
 type SessionPageProps = {
   params: {
@@ -35,7 +35,10 @@ export default async function SessionPage({ params, searchParams }: SessionPageP
   const detail = result.detail;
   const previousWorkout =
     detail.session.status === "started"
-      ? await getPreviousCompletedWorkout(detail.session.client_id, detail.session.id).catch(() => null)
+      ? await getPreviousCompletedWorkoutForSession(detail.session.id).catch(() => ({
+          workout: null,
+          pattern: null
+        }))
       : null;
 
   return (
