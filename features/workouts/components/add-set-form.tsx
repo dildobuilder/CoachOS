@@ -14,7 +14,7 @@ type AddSetFormProps = {
 export function AddSetForm({ sessionId, exerciseId, intensityType }: AddSetFormProps) {
   return (
     <form action={addSetToExercise.bind(null, sessionId, exerciseId)} className="grid gap-3 rounded-md bg-secondary/40 p-3">
-      <div className={intensityType === "none" ? "grid grid-cols-2 gap-3 sm:grid-cols-[1fr_1fr_auto]" : "grid grid-cols-2 gap-3 sm:grid-cols-[1fr_1fr_1fr_auto]"}>
+      <div className={intensityType === "none" ? "grid grid-cols-2 gap-3 sm:grid-cols-[1fr_1fr_1fr_auto]" : "grid grid-cols-2 gap-3 sm:grid-cols-[1fr_1fr_1fr_1fr_auto]"}>
         <div className="space-y-2">
           <Label>Вес</Label>
           <Input name="weight" type="number" inputMode="decimal" step="0.5" min="0" placeholder="кг" />
@@ -22,6 +22,10 @@ export function AddSetForm({ sessionId, exerciseId, intensityType }: AddSetFormP
         <div className="space-y-2">
           <Label>Повт.</Label>
           <Input name="reps" type="number" inputMode="numeric" step="1" min="1" placeholder="8" />
+        </div>
+        <div className="space-y-2">
+          <Label>Количество</Label>
+          <Input name="set_count" type="number" inputMode="numeric" step="1" min="1" max="10" defaultValue="1" />
         </div>
         {intensityType === "none" ? (
           <input type="hidden" name="intensity_value" value="" />

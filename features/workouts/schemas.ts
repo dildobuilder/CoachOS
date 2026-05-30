@@ -31,7 +31,8 @@ export const setSchema = z.object({
   weight: optionalNumber,
   reps: optionalNumber.pipe(z.number().int().min(1).max(500).nullable()),
   intensity_value: optionalNumber,
-  notes: optionalText
+  notes: optionalText,
+  set_count: z.coerce.number().int().min(1, "РњРёРЅРёРјСѓРј 1 РїРѕРґС…РѕРґ").max(10, "РњР°РєСЃРёРјСѓРј 10 РїРѕРґС…РѕРґРѕРІ").default(1)
 });
 
 export const completeSessionSchema = z.object({

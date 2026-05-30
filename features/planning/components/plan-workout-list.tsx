@@ -18,7 +18,7 @@ export function PlanWorkoutList({ clientId, workouts }: PlanWorkoutListProps) {
           <CardContent className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
             <div className="space-y-1">
               <div className="flex flex-wrap items-center gap-2">
-                <h3 className="font-semibold">{workout.name}</h3>
+                <h3 className="font-semibold">{plannedWorkoutTitle(workout)}</h3>
                 <Badge variant={workout.status === "planned" ? "outline" : "default"}>{statusLabel(workout.status)}</Badge>
                 {workout.training_plan_patterns ? (
                   <Badge variant="secondary">
@@ -71,6 +71,10 @@ function statusLabel(status: PlannedWorkoutListItem["status"]) {
   }
 
   return "План";
+}
+
+function plannedWorkoutTitle(workout: PlannedWorkoutListItem) {
+  return workout.training_plan_patterns?.name || workout.training_plans?.name || workout.name;
 }
 
 function formatDate(value: string) {

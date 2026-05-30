@@ -6,6 +6,7 @@ import { getLatestClientWeight } from "@/features/client-logs/queries";
 import { ClientProfileNav } from "@/features/clients/components/client-profile-nav";
 import { ClientProfileSummary } from "@/features/clients/components/client-profile-summary";
 import { getClientById } from "@/features/clients/queries";
+import { getClientActiveTrainingPlan } from "@/features/planning/queries";
 
 type ClientPageProps = {
   params: {
@@ -14,9 +15,10 @@ type ClientPageProps = {
 };
 
 export default async function ClientPage({ params }: ClientPageProps) {
-  const [client, currentWeight] = await Promise.all([
+  const [client, currentWeight, activePlan] = await Promise.all([
     getClientById(params.clientId),
-    getLatestClientWeight(params.clientId)
+    getLatestClientWeight(params.clientId),
+    getClientActiveTrainingPlan(params.clientId)
   ]);
 
   return (
@@ -43,7 +45,7 @@ export default async function ClientPage({ params }: ClientPageProps) {
         currentWeight={currentWeight}
         returnToPath={`/clients/${client.id}`}
       />
-      <ClientProfileSummary client={client} />
+      <ClientProfileSummary client={client} activePlan={activePlan} />
     </div>
   );
 }

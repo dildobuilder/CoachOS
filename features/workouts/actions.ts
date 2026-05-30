@@ -47,7 +47,8 @@ function setFormDataToObject(formData: FormData) {
     weight: formData.get("weight"),
     reps: formData.get("reps"),
     intensity_value: formData.get("intensity_value"),
-    notes: formData.get("notes")
+    notes: formData.get("notes"),
+    set_count: formData.get("set_count") || 1
   };
 }
 
@@ -184,16 +185,16 @@ export async function addSetToExercise(sessionId: string, exerciseId: string, fo
   const intensityValue = validateIntensityValue(exercise.intensity_type, parsed.data.intensity_value);
   const supabase = createSupabaseClient();
   const nextPosition = await getNextSetPosition(exerciseId);
-  const setInsert: TablesInsert<"session_sets"> = {
+  const setInserts: TablesInsert<"session_sets">[] = Array.from({ length: parsed.data.set_count }, (_, index) => ({
     session_exercise_id: exerciseId,
     trainer_id: trainerId,
-    position: nextPosition,
+    position: nextPosition + index,
     weight: parsed.data.weight,
     reps: parsed.data.reps,
     intensity_value: intensityValue,
     notes: parsed.data.notes
-  };
-  const { error } = await supabase.from("session_sets").insert(setInsert);
+  }));
+  const { error } = await supabase.from("session_sets").insert(setInserts);
 
   if (error) {
     redirect(`/sessions/${exercise.session_id}?error=${encodeURIComponent(error.message)}`);

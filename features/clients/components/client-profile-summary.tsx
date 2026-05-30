@@ -1,11 +1,18 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ClientStatusBadge } from "@/features/clients/components/client-status-badge";
+import type { TrainingPlanRow } from "@/features/planning/queries";
 import { formatDate } from "@/lib/dates";
 import type { Database } from "@/lib/database.types";
 
 type Client = Database["public"]["Tables"]["clients"]["Row"];
 
-export function ClientProfileSummary({ client }: { client: Client }) {
+export function ClientProfileSummary({
+  client,
+  activePlan
+}: {
+  client: Client;
+  activePlan?: TrainingPlanRow | null;
+}) {
   return (
     <div className="grid gap-4 lg:grid-cols-[1.2fr_0.8fr]">
       <Card>
@@ -29,8 +36,8 @@ export function ClientProfileSummary({ client }: { client: Client }) {
           <CardTitle>Тренировочный контекст</CardTitle>
         </CardHeader>
         <CardContent className="grid gap-4 text-sm">
-          <Info label="Частота" value={client.training_frequency} />
-          <Info label="Сплит" value={client.training_split} />
+          <Info label="Частота" value={activePlan ? `${activePlan.sessions_per_week} трен./нед.` : client.training_frequency} />
+          <Info label="Сплит" value={activePlan ? splitLabel(activePlan.split_type) : client.training_split} />
           <Info label="Ограничения" value={client.limitations} />
           <Info label="Травмы" value={client.injuries} />
         </CardContent>
@@ -57,4 +64,16 @@ function Info({ label, value }: { label: string; value?: string | null }) {
       <dd className="mt-1">{value || "Не указано"}</dd>
     </div>
   );
+}
+
+function splitLabel(splitType: TrainingPlanRow["split_type"]) {
+  const labels: Record<TrainingPlanRow["split_type"], string> = {
+    full_body: "Full body",
+    upper_lower: "Upper / Lower",
+    push_pull_legs: "Push / Pull / Legs",
+    powerlifting: "Powerlifting",
+    custom: "Custom"
+  };
+
+  return labels[splitType];
 }

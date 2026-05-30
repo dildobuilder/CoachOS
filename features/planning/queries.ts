@@ -74,6 +74,24 @@ export async function getClientTrainingPlans(clientId: string): Promise<Training
   return data ?? [];
 }
 
+export async function getClientActiveTrainingPlan(clientId: string): Promise<TrainingPlanRow | null> {
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from("training_plans")
+    .select("*")
+    .eq("client_id", clientId)
+    .eq("status", "active")
+    .order("starts_on", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return data;
+}
+
 export async function getTrainingPlan(planId: string): Promise<TrainingPlanRow> {
   const supabase = createClient();
   const { data, error } = await supabase.from("training_plans").select("*").eq("id", planId).maybeSingle();

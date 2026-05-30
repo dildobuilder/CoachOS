@@ -41,7 +41,8 @@ function setFormDataToObject(formData: FormData) {
     weight: formData.get("weight"),
     reps: formData.get("reps"),
     intensity_value: formData.get("intensity_value"),
-    notes: formData.get("notes")
+    notes: formData.get("notes"),
+    set_count: formData.get("set_count") || 1
   };
 }
 
@@ -348,15 +349,16 @@ export async function addPatternSet(patternExerciseId: string, formData: FormDat
     const position = await getNextPatternSetPosition(patternExerciseId);
     const intensityValue = validateIntensityValue(exercise.intensity_type, parsed.data.intensity_value);
     const supabase = createSupabaseClient();
-    const { error } = await supabase.from("pattern_sets").insert({
+    const setInserts: TablesInsert<"pattern_sets">[] = Array.from({ length: parsed.data.set_count }, (_, index) => ({
       trainer_id: trainerId,
       pattern_exercise_id: patternExerciseId,
-      position,
+      position: position + index,
       weight: parsed.data.weight,
       reps: parsed.data.reps,
       intensity_value: intensityValue,
       notes: parsed.data.notes
-    } satisfies TablesInsert<"pattern_sets">);
+    }));
+    const { error } = await supabase.from("pattern_sets").insert(setInserts);
 
     if (error) {
       redirect(patternErrorPath(pattern, error.message));
@@ -552,16 +554,16 @@ export async function addPlannedSet(plannedExerciseId: string, formData: FormDat
     const intensityValue = validateIntensityValue(exercise.intensity_type, parsed.data.intensity_value);
     const position = await getNextPlannedSetPosition(plannedExerciseId);
     const supabase = createSupabaseClient();
-    const setInsert: TablesInsert<"planned_sets"> = {
+    const setInserts: TablesInsert<"planned_sets">[] = Array.from({ length: parsed.data.set_count }, (_, index) => ({
       trainer_id: trainerId,
       planned_exercise_id: plannedExerciseId,
-      position,
+      position: position + index,
       weight: parsed.data.weight,
       reps: parsed.data.reps,
       intensity_value: intensityValue,
       notes: parsed.data.notes
-    };
-    const { error } = await supabase.from("planned_sets").insert(setInsert);
+    }));
+    const { error } = await supabase.from("planned_sets").insert(setInserts);
 
     if (error) {
       redirect(plannedWorkoutErrorPath(workout, error.message));
@@ -1414,7 +1416,7 @@ function generatePlannedWorkouts(plan: Tables<"training_plans">, weekdays: numbe
 
     const weekNumber = Math.floor(offset / 7) + 1;
     workouts.push({
-      name: getWorkoutName(plan.split_type, dayNumber),
+      name: plan.name,
       planned_date: plannedDate,
       week_number: weekNumber,
       day_number: dayNumber,

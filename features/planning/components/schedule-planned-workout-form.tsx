@@ -5,10 +5,10 @@ import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { schedulePlannedWorkout } from "@/features/planning/actions";
-import type { PlannedWorkoutRow } from "@/features/planning/queries";
+import type { PlannedWorkoutDetail } from "@/features/planning/queries";
 
 type SchedulePlannedWorkoutFormProps = {
-  workout: PlannedWorkoutRow;
+  workout: PlannedWorkoutDetail;
 };
 
 export function SchedulePlannedWorkoutForm({ workout }: SchedulePlannedWorkoutFormProps) {
@@ -51,7 +51,7 @@ export function SchedulePlannedWorkoutForm({ workout }: SchedulePlannedWorkoutFo
 
           <div className="space-y-2">
             <Label htmlFor="title">Название события</Label>
-            <Input id="title" name="title" defaultValue={workout.name} />
+            <Input id="title" name="title" defaultValue={plannedWorkoutTitle(workout)} />
           </div>
           <div className="space-y-2">
             <Label htmlFor="notes">Заметки</Label>
@@ -64,4 +64,8 @@ export function SchedulePlannedWorkoutForm({ workout }: SchedulePlannedWorkoutFo
       </CardContent>
     </Card>
   );
+}
+
+function plannedWorkoutTitle(workout: PlannedWorkoutDetail) {
+  return workout.training_plan_patterns?.name || workout.training_plans?.name || workout.name;
 }

@@ -59,7 +59,7 @@ export function ClientCalendarDayList({ clientId, startDate, days }: ClientCalen
                       className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-dashed bg-secondary/30 p-2"
                     >
                       <div>
-                        <div className="font-medium">{workout.name}</div>
+                        <div className="font-medium">{plannedWorkoutTitle(workout)}</div>
                         <div className="text-xs text-muted-foreground">
                           {workout.training_plans?.name ?? "План"} · без времени
                         </div>
@@ -148,6 +148,10 @@ function statusLabel(status: string) {
   }
 
   return "Запланировано";
+}
+
+function plannedWorkoutTitle(workout: ClientCalendarDay["plannedWorkouts"][number]) {
+  return workout.training_plan_patterns?.name || workout.training_plans?.name || workout.name;
 }
 
 function parseDate(dateValue: string) {

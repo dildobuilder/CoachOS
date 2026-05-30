@@ -25,7 +25,7 @@ export async function PlannedWorkoutEditor({ workout }: PlannedWorkoutEditorProp
         <CardContent className="flex flex-col gap-4 p-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="space-y-1">
             <div className="flex flex-wrap items-center gap-2">
-              <h2 className="font-semibold">{workout.name}</h2>
+              <h2 className="font-semibold">{plannedWorkoutTitle(workout)}</h2>
               <Badge variant={workout.status === "planned" ? "outline" : "default"}>{statusLabel(workout.status)}</Badge>
             </div>
             <p className="text-sm text-muted-foreground">
@@ -104,6 +104,10 @@ function statusLabel(status: PlannedWorkoutDetail["status"]) {
   }
 
   return "План";
+}
+
+function plannedWorkoutTitle(workout: PlannedWorkoutDetail) {
+  return workout.training_plan_patterns?.name || workout.training_plans?.name || workout.name;
 }
 
 function formatDate(value: string) {
