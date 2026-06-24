@@ -64,14 +64,28 @@ export async function getClientTrainingPlans(clientId: string): Promise<Training
     .from("training_plans")
     .select("*")
     .eq("client_id", clientId)
-    .neq("status", "archived")
     .order("starts_on", { ascending: false });
 
   if (error) {
     throw new Error(error.message);
   }
 
-  return data ?? [];
+  const statusOrder: Record<TrainingPlanRow["status"], number> = {
+    active: 0,
+    inactive: 1,
+    completed: 2,
+    archived: 3
+  };
+
+  return (data ?? []).sort((a, b) => {
+    const statusDiff = statusOrder[a.status] - statusOrder[b.status];
+
+    if (statusDiff !== 0) {
+      return statusDiff;
+    }
+
+    return Date.parse(b.starts_on) - Date.parse(a.starts_on);
+  });
 }
 
 export async function getClientActiveTrainingPlan(clientId: string): Promise<TrainingPlanRow | null> {

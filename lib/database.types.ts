@@ -191,7 +191,7 @@ export type Database = {
           sessions_per_week: number;
           training_weekdays: number[];
           split_type: "full_body" | "upper_lower" | "push_pull_legs" | "powerlifting" | "custom";
-          status: "active" | "completed" | "archived";
+          status: "active" | "inactive" | "completed" | "archived";
           notes: string | null;
           created_at: string;
           updated_at: string;
@@ -207,7 +207,7 @@ export type Database = {
           sessions_per_week: number;
           training_weekdays: number[];
           split_type: "full_body" | "upper_lower" | "push_pull_legs" | "powerlifting" | "custom";
-          status?: "active" | "completed" | "archived";
+          status?: "active" | "inactive" | "completed" | "archived";
           notes?: string | null;
           created_at?: string;
           updated_at?: string;
@@ -223,7 +223,7 @@ export type Database = {
           sessions_per_week?: number;
           training_weekdays?: number[];
           split_type?: "full_body" | "upper_lower" | "push_pull_legs" | "powerlifting" | "custom";
-          status?: "active" | "completed" | "archived";
+          status?: "active" | "inactive" | "completed" | "archived";
           notes?: string | null;
           created_at?: string;
           updated_at?: string;

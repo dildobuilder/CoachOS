@@ -38,6 +38,9 @@ export default async function TrainingPlanPage({ params, searchParams }: Trainin
         <Button asChild variant="outline">
           <Link href={`/clients/${client.id}/calendar`}>Календарь клиента</Link>
         </Button>
+        <Button asChild variant="outline">
+          <Link href={`/clients/${client.id}/plans/${plan.id}/edit`}>Редактировать</Link>
+        </Button>
       </div>
       <PlanPatternsPanel clientId={client.id} plan={plan} patterns={patterns} />
       <PlanWorkoutList clientId={client.id} workouts={workouts} />

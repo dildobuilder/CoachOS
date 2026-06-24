@@ -103,6 +103,7 @@ export async function createTrainingPlan(clientId: string, formData: FormData) {
     const supabase = createSupabaseClient();
     const startsOn = parsed.data.starts_on;
     const endsOn = addDays(startsOn, parsed.data.duration_weeks * 7 - 1);
+    await deactivateOtherClientPlans(supabase, clientId, trainerId);
     const planInsert: TablesInsert<"training_plans"> = {
       trainer_id: trainerId,
       client_id: clientId,
@@ -142,10 +143,135 @@ export async function createTrainingPlan(clientId: string, formData: FormData) {
   }
 }
 
+export async function updateTrainingPlan(planId: string, formData: FormData) {
+  try {
+    const parsed = trainingPlanSchema.safeParse(planFormDataToObject(formData));
+    const plan = await getTrainingPlanForAction(planId);
+
+    if (!parsed.success) {
+      redirect(`/clients/${plan.client_id}/plans/${plan.id}/edit?error=${encodeURIComponent(parsed.error.issues[0]?.message ?? "РћС€РёР±РєР°")}`);
+    }
+
+    const trainerId = await getUserId(`/clients/${plan.client_id}/plans/${plan.id}/edit`);
+    const supabase = createSupabaseClient();
+    const startsOn = parsed.data.starts_on;
+    const endsOn = addDays(startsOn, parsed.data.duration_weeks * 7 - 1);
+    const { error } = await supabase
+      .from("training_plans")
+      .update({
+        name: parsed.data.name,
+        duration_weeks: parsed.data.duration_weeks,
+        starts_on: startsOn,
+        ends_on: endsOn,
+        sessions_per_week: parsed.data.sessions_per_week,
+        training_weekdays: parsed.data.training_weekdays,
+        split_type: parsed.data.split_type,
+        notes: parsed.data.notes ?? null
+      } satisfies TablesUpdate<"training_plans">)
+      .eq("id", plan.id)
+      .eq("trainer_id", trainerId);
+
+    if (error) {
+      redirect(`/clients/${plan.client_id}/plans/${plan.id}/edit?error=${encodeURIComponent(error.message)}`);
+    }
+
+    const { error: cancelError } = await supabase
+      .from("planned_workouts")
+      .update({ status: "cancelled" } satisfies TablesUpdate<"planned_workouts">)
+      .eq("training_plan_id", plan.id)
+      .eq("trainer_id", trainerId)
+      .eq("status", "planned")
+      .is("calendar_event_id", null);
+
+    if (cancelError) {
+      redirect(`/clients/${plan.client_id}/plans/${plan.id}/edit?error=${encodeURIComponent(cancelError.message)}`);
+    }
+
+    const updatedPlan = {
+      ...plan,
+      name: parsed.data.name,
+      duration_weeks: parsed.data.duration_weeks,
+      starts_on: startsOn,
+      ends_on: endsOn,
+      sessions_per_week: parsed.data.sessions_per_week,
+      training_weekdays: parsed.data.training_weekdays,
+      split_type: parsed.data.split_type,
+      notes: parsed.data.notes ?? null
+    };
+    const generatedWorkouts = generatePlannedWorkouts(updatedPlan, parsed.data.training_weekdays).map((workout) => ({
+      ...workout,
+      trainer_id: trainerId,
+      training_plan_id: plan.id,
+      client_id: plan.client_id
+    })) satisfies TablesInsert<"planned_workouts">[];
+    const { data: protectedWorkouts, error: protectedError } = await supabase
+      .from("planned_workouts")
+      .select("planned_date")
+      .eq("training_plan_id", plan.id)
+      .eq("trainer_id", trainerId)
+      .neq("status", "cancelled");
+
+    if (protectedError) {
+      redirect(`/clients/${plan.client_id}/plans/${plan.id}/edit?error=${encodeURIComponent(protectedError.message)}`);
+    }
+
+    const protectedDates = new Set((protectedWorkouts ?? []).map((workout) => workout.planned_date));
+    const workoutsToInsert = generatedWorkouts.filter((workout) => !protectedDates.has(workout.planned_date));
+
+    if (workoutsToInsert.length > 0) {
+      const { error: insertError } = await supabase.from("planned_workouts").insert(workoutsToInsert);
+
+      if (insertError) {
+        redirect(`/clients/${plan.client_id}/plans/${plan.id}/edit?error=${encodeURIComponent(insertError.message)}`);
+      }
+    }
+
+    revalidatePath(`/clients/${plan.client_id}`);
+    revalidatePath(`/clients/${plan.client_id}/plans`);
+    revalidatePath(`/clients/${plan.client_id}/plans/${plan.id}`);
+    revalidatePath(`/clients/${plan.client_id}/calendar`);
+    redirect(`/clients/${plan.client_id}/plans/${plan.id}`);
+  } catch (error) {
+    redirectActionError(error, "/clients");
+  }
+}
+
+export async function activateTrainingPlan(planId: string) {
+  try {
+    const trainerId = await getUserId("/clients");
+    const plan = await getTrainingPlanForAction(planId);
+    await ensureClientOwnership(plan.client_id, trainerId);
+
+    if (plan.status === "archived") {
+      redirect(`/clients/${plan.client_id}/plans?error=${encodeURIComponent("Архивный план нельзя сделать активным.")}`);
+    }
+
+    const supabase = createSupabaseClient();
+    await deactivateOtherClientPlans(supabase, plan.client_id, trainerId, plan.id);
+    const { error } = await supabase
+      .from("training_plans")
+      .update({ status: "active" } satisfies TablesUpdate<"training_plans">)
+      .eq("id", plan.id)
+      .eq("trainer_id", trainerId);
+
+    if (error) {
+      redirect(`/clients/${plan.client_id}/plans?error=${encodeURIComponent(error.message)}`);
+    }
+
+    revalidateClientPlanningPaths(plan.client_id);
+    redirect(`/clients/${plan.client_id}/plans`);
+  } catch (error) {
+    redirectActionError(error, "/clients");
+  }
+}
+
+export const makeTrainingPlanActive = activateTrainingPlan;
+
 export async function archiveTrainingPlan(planId: string) {
   try {
     const trainerId = await getUserId("/dashboard");
     const plan = await getTrainingPlanForAction(planId);
+    await ensureClientOwnership(plan.client_id, trainerId);
     const supabase = createSupabaseClient();
     const { error: workoutsError } = await supabase
       .from("planned_workouts")
@@ -168,12 +294,38 @@ export async function archiveTrainingPlan(planId: string) {
       redirect(`/clients/${plan.client_id}/plans/${plan.id}?error=${encodeURIComponent(error.message)}`);
     }
 
-    revalidatePath(`/clients/${plan.client_id}/plans`);
-    revalidatePath(`/clients/${plan.client_id}/calendar`);
-    revalidatePath("/calendar");
+    revalidateClientPlanningPaths(plan.client_id);
     redirect(`/clients/${plan.client_id}/plans`);
   } catch (error) {
     redirectActionError(error, "/dashboard");
+  }
+}
+
+export async function completeTrainingPlan(planId: string) {
+  try {
+    const trainerId = await getUserId("/clients");
+    const plan = await getTrainingPlanForAction(planId);
+    await ensureClientOwnership(plan.client_id, trainerId);
+
+    if (plan.status === "archived") {
+      redirect(`/clients/${plan.client_id}/plans?error=${encodeURIComponent("Архивный план нельзя завершить.")}`);
+    }
+
+    const supabase = createSupabaseClient();
+    const { error } = await supabase
+      .from("training_plans")
+      .update({ status: "completed" } satisfies TablesUpdate<"training_plans">)
+      .eq("id", plan.id)
+      .eq("trainer_id", trainerId);
+
+    if (error) {
+      redirect(`/clients/${plan.client_id}/plans?error=${encodeURIComponent(error.message)}`);
+    }
+
+    revalidateClientPlanningPaths(plan.client_id);
+    redirect(`/clients/${plan.client_id}/plans`);
+  } catch (error) {
+    redirectActionError(error, "/clients");
   }
 }
 
@@ -771,6 +923,7 @@ export async function createPlanFromTemplate(clientId: string, formData: FormDat
     const startsOn = parsed.data.starts_on;
     const endsOn = addDays(startsOn, parsed.data.duration_weeks * 7 - 1);
     const supabase = createSupabaseClient();
+    await deactivateOtherClientPlans(supabase, clientId, trainerId);
     const { data: plan, error } = await supabase
       .from("training_plans")
       .insert({
@@ -883,6 +1036,38 @@ async function getUserId(errorPath: string) {
   }
 
   return user.id;
+}
+
+async function deactivateOtherClientPlans(
+  supabase: ReturnType<typeof createSupabaseClient>,
+  clientId: string,
+  trainerId: string,
+  exceptPlanId?: string
+) {
+  let query = supabase
+    .from("training_plans")
+    .update({ status: "inactive" } satisfies TablesUpdate<"training_plans">)
+    .eq("client_id", clientId)
+    .eq("trainer_id", trainerId)
+    .eq("status", "active");
+
+  if (exceptPlanId) {
+    query = query.neq("id", exceptPlanId);
+  }
+
+  const { error } = await query;
+
+  if (error) {
+    throw new Error(error.message);
+  }
+}
+
+function revalidateClientPlanningPaths(clientId: string) {
+  revalidatePath("/clients");
+  revalidatePath(`/clients/${clientId}`);
+  revalidatePath(`/clients/${clientId}/calendar`);
+  revalidatePath(`/clients/${clientId}/plans`);
+  revalidatePath("/calendar");
 }
 
 async function getPatternForAction(patternId: string): Promise<PatternForAction> {

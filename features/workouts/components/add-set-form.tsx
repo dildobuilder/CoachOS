@@ -20,12 +20,12 @@ export function AddSetForm({ sessionId, exerciseId, intensityType }: AddSetFormP
           <Input name="weight" type="number" inputMode="decimal" step="0.5" min="0" placeholder="кг" />
         </div>
         <div className="space-y-2">
-          <Label>Повт.</Label>
-          <Input name="reps" type="number" inputMode="numeric" step="1" min="1" placeholder="8" />
+          <Label>Подходов</Label>
+          <Input name="set_count" type="number" inputMode="numeric" step="1" min="1" max="10" defaultValue="1" />
         </div>
         <div className="space-y-2">
-          <Label>Количество</Label>
-          <Input name="set_count" type="number" inputMode="numeric" step="1" min="1" max="10" defaultValue="1" />
+          <Label>Повт.</Label>
+          <Input name="reps" type="number" inputMode="numeric" step="1" min="1" placeholder="8" />
         </div>
         {intensityType === "none" ? (
           <input type="hidden" name="intensity_value" value="" />

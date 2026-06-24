@@ -1,3 +1,5 @@
+import Link from "next/link";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ClientStatusBadge } from "@/features/clients/components/client-status-badge";
 import type { TrainingPlanRow } from "@/features/planning/queries";
@@ -36,6 +38,22 @@ export function ClientProfileSummary({
           <CardTitle>Тренировочный контекст</CardTitle>
         </CardHeader>
         <CardContent className="grid gap-4 text-sm">
+          {activePlan ? (
+            <div className="rounded-md border bg-secondary/30 p-3">
+              <div className="text-xs font-medium uppercase text-muted-foreground">Активный план</div>
+              <div className="mt-1 font-semibold">{activePlan.name}</div>
+              <div className="mt-1 text-xs text-muted-foreground">
+                {formatDate(activePlan.starts_on)} - {formatDate(activePlan.ends_on)} · {activePlan.duration_weeks} нед.
+              </div>
+              <Button asChild className="mt-3" size="sm" variant="outline">
+                <Link href={`/clients/${client.id}/plans/${activePlan.id}`}>Открыть план</Link>
+              </Button>
+            </div>
+          ) : (
+            <div className="rounded-md border border-dashed p-3 text-sm text-muted-foreground">
+              Активный план не выбран.
+            </div>
+          )}
           <Info label="Частота" value={activePlan ? `${activePlan.sessions_per_week} трен./нед.` : client.training_frequency} />
           <Info label="Сплит" value={activePlan ? splitLabel(activePlan.split_type) : client.training_split} />
           <Info label="Ограничения" value={client.limitations} />

@@ -94,8 +94,8 @@ export function PatternExerciseCard({ exercise }: PatternExerciseCardProps) {
 
         <form action={addPatternSet.bind(null, exercise.id)} className="grid gap-2 rounded-md bg-secondary/40 p-3 sm:grid-cols-[1fr_1fr_1fr_1fr_1fr_auto] sm:items-end">
           <SetField label="Вес" name="weight" placeholder="кг" />
+          <SetField label="Подходов" name="set_count" defaultValue="1" placeholder="1" />
           <SetField label="Повт." name="reps" placeholder="8" />
-          <SetField label="Количество" name="set_count" defaultValue="1" placeholder="1" />
           <div className="space-y-2">
             <Label>{intensityLabels[exercise.intensity_type]}</Label>
             <IntensityValueInput type={exercise.intensity_type} />
