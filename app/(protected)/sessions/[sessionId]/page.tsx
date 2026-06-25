@@ -3,6 +3,7 @@ import { FormError } from "@/components/feedback/form-error";
 import { PageHeader } from "@/components/layout/page-header";
 import { Button } from "@/components/ui/button";
 import { SessionEditor } from "@/features/workouts/components/session-editor";
+import { getPlanActualReviewForSession } from "@/features/workouts/plan-actual-review";
 import { getPreviousCompletedWorkoutForSession, getWorkoutSessionResult } from "@/features/workouts/queries";
 
 type SessionPageProps = {
@@ -40,6 +41,10 @@ export default async function SessionPage({ params, searchParams }: SessionPageP
           pattern: null
         }))
       : null;
+  const planActualReview =
+    detail.session.status === "completed" && detail.session.planned_workout_id
+      ? await getPlanActualReviewForSession(detail.session.id).catch(() => null)
+      : null;
 
   return (
     <div className="space-y-6">
@@ -48,7 +53,7 @@ export default async function SessionPage({ params, searchParams }: SessionPageP
         description={detail.session.status === "completed" ? "Readonly просмотр завершенной тренировки." : "Активная тренировка клиента."}
       />
       <FormError message={searchParams?.error} />
-      <SessionEditor detail={detail} previousWorkout={previousWorkout} />
+      <SessionEditor detail={detail} previousWorkout={previousWorkout} planActualReview={planActualReview} />
     </div>
   );
 }

@@ -5,16 +5,19 @@ import { Card, CardContent } from "@/components/ui/card";
 import { AddExerciseFromLibrary } from "@/features/exercises/components/add-exercise-from-library";
 import { getAvailableExercises, getExerciseCategories } from "@/features/exercises/queries";
 import { CompleteSessionButton } from "@/features/workouts/components/complete-session-button";
+import { PlanActualReview } from "@/features/workouts/components/plan-actual-review";
 import { PreviousWorkoutPlaceholder } from "@/features/workouts/components/previous-workout-placeholder";
 import { SessionExerciseCard } from "@/features/workouts/components/session-exercise-card";
+import type { PlanActualReview as PlanActualReviewModel } from "@/features/workouts/plan-actual-review";
 import type { PreviousCompletedWorkoutResult, WorkoutSessionDetail } from "@/features/workouts/queries";
 
 type SessionEditorProps = {
   detail: WorkoutSessionDetail;
   previousWorkout: PreviousCompletedWorkoutResult | null;
+  planActualReview: PlanActualReviewModel | null;
 };
 
-export async function SessionEditor({ detail, previousWorkout }: SessionEditorProps) {
+export async function SessionEditor({ detail, previousWorkout, planActualReview }: SessionEditorProps) {
   const isReadonly = detail.session.status === "completed";
   const clientName = detail.session.clients?.preferred_name || detail.session.clients?.name || "Клиент";
   const [exerciseLibrary, exerciseCategories] = !isReadonly
@@ -44,6 +47,8 @@ export async function SessionEditor({ detail, previousWorkout }: SessionEditorPr
       </Card>
 
       {!isReadonly && previousWorkout ? <PreviousWorkoutPlaceholder result={previousWorkout} /> : null}
+
+      {planActualReview ? <PlanActualReview review={planActualReview} /> : null}
 
       <div className="space-y-4">
         {detail.exercises.length > 0 ? (
