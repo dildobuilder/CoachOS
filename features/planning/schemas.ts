@@ -23,6 +23,7 @@ const optionalNumber = z
 export const splitTypeSchema = z.enum(["full_body", "upper_lower", "push_pull_legs", "powerlifting", "custom"]);
 export const trainingPlanStatusSchema = z.enum(["active", "inactive", "completed", "archived"]);
 export const plannedWorkoutStatusSchema = z.enum(["planned", "scheduled", "in_progress", "completed", "cancelled"]);
+export const futureUpdateModeSchema = z.enum(["update_unscheduled", "plan_only", "cancel_unscheduled"]).default("update_unscheduled");
 
 export const trainingPlanSchema = z
   .object({

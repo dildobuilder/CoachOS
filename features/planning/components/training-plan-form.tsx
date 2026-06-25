@@ -84,6 +84,43 @@ export function TrainingPlanForm({ clientId, defaultStartDate, plan }: TrainingP
             <Textarea id="notes" name="notes" defaultValue={plan?.notes ?? ""} />
           </div>
 
+          {isEdit ? (
+            <div className="rounded-md border bg-muted/30 p-4">
+              <div className="grid gap-3">
+                <div>
+                  <h3 className="font-semibold">Как применить изменения к будущим тренировкам?</h3>
+                  <p className="text-sm text-muted-foreground">
+                    Тренировки с назначенным временем, начатые и завершенные тренировки не изменятся.
+                  </p>
+                </div>
+                <div className="grid gap-2">
+                  <label className="flex gap-2 rounded-md border bg-background p-3 text-sm">
+                    <input type="radio" name="future_update_mode" value="update_unscheduled" defaultChecked />
+                    <span>
+                      <span className="block font-medium">Обновить будущие тренировки без времени</span>
+                      <span className="text-muted-foreground">Отменит безопасные будущие черновики и создаст новые по обновленным дням.</span>
+                    </span>
+                  </label>
+                  <label className="flex gap-2 rounded-md border bg-background p-3 text-sm">
+                    <input type="radio" name="future_update_mode" value="plan_only" />
+                    <span>
+                      <span className="block font-medium">Изменить только параметры плана</span>
+                      <span className="text-muted-foreground">Существующие planned workouts, события календаря и сессии не изменятся.</span>
+                    </span>
+                  </label>
+                  <label className="flex gap-2 rounded-md border bg-background p-3 text-sm">
+                    <input type="radio" name="future_update_mode" value="cancel_unscheduled" />
+                    <span>
+                      <span className="block font-medium">Отменить будущие тренировки без времени</span>
+                      <span className="text-muted-foreground">Новые planned workouts созданы не будут.</span>
+                    </span>
+                  </label>
+                </div>
+                <p className="text-sm font-medium text-muted-foreground">История завершенных тренировок сохранится.</p>
+              </div>
+            </div>
+          ) : null}
+
           <div className="flex justify-end">
             <SubmitButton>{isEdit ? "Сохранить план" : "Создать план"}</SubmitButton>
           </div>

@@ -11,8 +11,16 @@ type PlanWorkoutListProps = {
 };
 
 export function PlanWorkoutList({ clientId, workouts }: PlanWorkoutListProps) {
+  const summary = getWorkoutSummary(workouts);
+
   return (
     <div className="grid gap-3">
+      <div className="grid gap-2 sm:grid-cols-4">
+        <SummaryItem label="Будущие без времени" value={summary.futureUnscheduled} />
+        <SummaryItem label="В календаре" value={summary.scheduled} />
+        <SummaryItem label="Завершено" value={summary.completed} />
+        <SummaryItem label="Отменено" value={summary.cancelled} />
+      </div>
       {workouts.map((workout) => (
         <Card key={workout.id}>
           <CardContent className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
@@ -53,6 +61,46 @@ export function PlanWorkoutList({ clientId, workouts }: PlanWorkoutListProps) {
   );
 }
 
+function SummaryItem({ label, value }: { label: string; value: number }) {
+  return (
+    <div className="rounded-md border bg-background p-3">
+      <p className="text-xs uppercase text-muted-foreground">{label}</p>
+      <p className="text-xl font-semibold">{value}</p>
+    </div>
+  );
+}
+
+function getWorkoutSummary(workouts: PlannedWorkoutListItem[]) {
+  const today = toDateString(new Date());
+
+  return workouts.reduce(
+    (summary, workout) => {
+      const isFuture = workout.planned_date >= today;
+      const hasCalendarSlot = Boolean(workout.calendar_event_id);
+      const hasSession = Boolean(workout.existing_session_id);
+
+      if (isFuture && workout.status === "planned" && !hasCalendarSlot && !hasSession) {
+        summary.futureUnscheduled += 1;
+      }
+
+      if (workout.status === "scheduled" || hasCalendarSlot) {
+        summary.scheduled += 1;
+      }
+
+      if (workout.status === "completed") {
+        summary.completed += 1;
+      }
+
+      if (workout.status === "cancelled") {
+        summary.cancelled += 1;
+      }
+
+      return summary;
+    },
+    { futureUnscheduled: 0, scheduled: 0, completed: 0, cancelled: 0 }
+  );
+}
+
 function statusLabel(status: PlannedWorkoutListItem["status"]) {
   if (status === "scheduled") {
     return "В календаре";
@@ -89,6 +137,14 @@ function parseDate(value: string) {
   const [year, month, day] = value.split("-").map(Number);
 
   return new Date(year, month - 1, day);
+}
+
+function toDateString(date: Date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+
+  return `${year}-${month}-${day}`;
 }
 
 function formatTime(value: string) {

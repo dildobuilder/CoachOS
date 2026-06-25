@@ -8,6 +8,7 @@ import {
   applyPatternSchema,
   assignPatternSchema,
   createPlanFromTemplateSchema,
+  futureUpdateModeSchema,
   patternExerciseUpdateSchema,
   patternSetSchema,
   planPatternSchema,
@@ -32,7 +33,8 @@ function planFormDataToObject(formData: FormData) {
     duration_weeks: formData.get("duration_weeks"),
     training_weekdays: formData.getAll("training_weekdays"),
     split_type: formData.get("split_type") || "custom",
-    notes: formData.get("notes")
+    notes: formData.get("notes"),
+    future_update_mode: formData.get("future_update_mode") || "update_unscheduled"
   };
 }
 
@@ -145,11 +147,17 @@ export async function createTrainingPlan(clientId: string, formData: FormData) {
 
 export async function updateTrainingPlan(planId: string, formData: FormData) {
   try {
-    const parsed = trainingPlanSchema.safeParse(planFormDataToObject(formData));
+    const formValues = planFormDataToObject(formData);
+    const parsed = trainingPlanSchema.safeParse(formValues);
+    const parsedMode = futureUpdateModeSchema.safeParse(formValues.future_update_mode);
     const plan = await getTrainingPlanForAction(planId);
 
     if (!parsed.success) {
       redirect(`/clients/${plan.client_id}/plans/${plan.id}/edit?error=${encodeURIComponent(parsed.error.issues[0]?.message ?? "РћС€РёР±РєР°")}`);
+    }
+
+    if (!parsedMode.success) {
+      redirect(`/clients/${plan.client_id}/plans/${plan.id}/edit?error=${encodeURIComponent(parsedMode.error.issues[0]?.message ?? "Invalid update mode")}`);
     }
 
     const trainerId = await getUserId(`/clients/${plan.client_id}/plans/${plan.id}/edit`);
@@ -175,18 +183,6 @@ export async function updateTrainingPlan(planId: string, formData: FormData) {
       redirect(`/clients/${plan.client_id}/plans/${plan.id}/edit?error=${encodeURIComponent(error.message)}`);
     }
 
-    const { error: cancelError } = await supabase
-      .from("planned_workouts")
-      .update({ status: "cancelled" } satisfies TablesUpdate<"planned_workouts">)
-      .eq("training_plan_id", plan.id)
-      .eq("trainer_id", trainerId)
-      .eq("status", "planned")
-      .is("calendar_event_id", null);
-
-    if (cancelError) {
-      redirect(`/clients/${plan.client_id}/plans/${plan.id}/edit?error=${encodeURIComponent(cancelError.message)}`);
-    }
-
     const updatedPlan = {
       ...plan,
       name: parsed.data.name,
@@ -198,31 +194,63 @@ export async function updateTrainingPlan(planId: string, formData: FormData) {
       split_type: parsed.data.split_type,
       notes: parsed.data.notes ?? null
     };
-    const generatedWorkouts = generatePlannedWorkouts(updatedPlan, parsed.data.training_weekdays).map((workout) => ({
-      ...workout,
-      trainer_id: trainerId,
-      training_plan_id: plan.id,
-      client_id: plan.client_id
-    })) satisfies TablesInsert<"planned_workouts">[];
-    const { data: protectedWorkouts, error: protectedError } = await supabase
-      .from("planned_workouts")
-      .select("planned_date")
-      .eq("training_plan_id", plan.id)
-      .eq("trainer_id", trainerId)
-      .neq("status", "cancelled");
 
-    if (protectedError) {
-      redirect(`/clients/${plan.client_id}/plans/${plan.id}/edit?error=${encodeURIComponent(protectedError.message)}`);
-    }
+    if (parsedMode.data !== "plan_only") {
+      const safeWorkouts = await getSafeFutureUnscheduledPlannedWorkouts(plan.id, trainerId);
+      const safeWorkoutIds = safeWorkouts.map((workout) => workout.id);
 
-    const protectedDates = new Set((protectedWorkouts ?? []).map((workout) => workout.planned_date));
-    const workoutsToInsert = generatedWorkouts.filter((workout) => !protectedDates.has(workout.planned_date));
+      if (parsedMode.data === "update_unscheduled") {
+        const weekdayPatternMap = await getPlanWeekdayPatternMap(plan.id, trainerId);
+        const patternsById = await getPatternMapForPlan(plan.id, trainerId);
+        const existingWorkouts = await getNonCancelledPlanWorkoutKeys(plan.id, trainerId, safeWorkoutIds);
+        const existingDates = new Set(existingWorkouts.map((workout) => workout.planned_date));
+        const existingKeys = new Set(existingWorkouts.map((workout) => plannedWorkoutDedupeKey(workout.planned_date, workout.pattern_id)));
+        const workoutsToInsert = generatePlannedWorkouts(updatedPlan, parsed.data.training_weekdays)
+          .filter((workout) => workout.planned_date >= todayDate())
+          .map((workout) => {
+            const patternId = weekdayPatternMap.get(getIsoWeekday(workout.planned_date)) ?? null;
+            const pattern = patternId ? patternsById.get(patternId) : null;
 
-    if (workoutsToInsert.length > 0) {
-      const { error: insertError } = await supabase.from("planned_workouts").insert(workoutsToInsert);
+            return {
+              ...workout,
+              name: pattern?.name ?? updatedPlan.name,
+              trainer_id: trainerId,
+              training_plan_id: plan.id,
+              client_id: plan.client_id,
+              pattern_id: patternId
+            } satisfies TablesInsert<"planned_workouts">;
+          })
+          .filter((workout) => {
+            if (existingDates.has(workout.planned_date)) {
+              return false;
+            }
 
-      if (insertError) {
-        redirect(`/clients/${plan.client_id}/plans/${plan.id}/edit?error=${encodeURIComponent(insertError.message)}`);
+            return !existingKeys.has(plannedWorkoutDedupeKey(workout.planned_date, workout.pattern_id ?? null));
+          });
+
+        if (safeWorkoutIds.length > 0) {
+          await cancelPlannedWorkoutsByIds(safeWorkoutIds);
+        }
+
+        if (workoutsToInsert.length > 0) {
+          const { data: insertedWorkouts, error: insertError } = await supabase
+            .from("planned_workouts")
+            .insert(workoutsToInsert)
+            .select("*");
+
+          if (insertError) {
+            redirect(`/clients/${plan.client_id}/plans/${plan.id}/edit?error=${encodeURIComponent(insertError.message)}`);
+          }
+
+          for (const workout of insertedWorkouts ?? []) {
+            if (workout.pattern_id) {
+              const pattern = patternsById.get(workout.pattern_id) ?? (await getPatternForAction(workout.pattern_id));
+              await replacePlannedWorkoutContentFromPattern(pattern, [workout]);
+            }
+          }
+        }
+      } else if (safeWorkoutIds.length > 0) {
+        await cancelPlannedWorkoutsByIds(safeWorkoutIds);
       }
     }
 
@@ -1405,6 +1433,136 @@ async function replacePlannedWorkoutContentFromPattern(pattern: PatternForAction
       }
     }
   }
+}
+
+async function getSafeFutureUnscheduledPlannedWorkouts(planId: string, trainerId: string) {
+  const supabase = createSupabaseClient();
+  const { data: candidates, error } = await supabase
+    .from("planned_workouts")
+    .select("*")
+    .eq("training_plan_id", planId)
+    .eq("trainer_id", trainerId)
+    .eq("status", "planned")
+    .gte("planned_date", todayDate())
+    .is("calendar_event_id", null)
+    .order("planned_date", { ascending: true });
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  const candidateIds = (candidates ?? []).map((workout) => workout.id);
+
+  if (candidateIds.length === 0) {
+    return [];
+  }
+
+  const { data: sessions, error: sessionsError } = await supabase
+    .from("workout_sessions")
+    .select("planned_workout_id")
+    .in("planned_workout_id", candidateIds);
+
+  if (sessionsError) {
+    throw new Error(sessionsError.message);
+  }
+
+  const plannedWorkoutsWithSessions = new Set((sessions ?? []).map((session) => session.planned_workout_id).filter(Boolean));
+
+  return (candidates ?? []).filter((workout) => !plannedWorkoutsWithSessions.has(workout.id));
+}
+
+async function cancelPlannedWorkoutsByIds(workoutIds: string[]) {
+  if (workoutIds.length === 0) {
+    return;
+  }
+
+  const supabase = createSupabaseClient();
+  const { error } = await supabase
+    .from("planned_workouts")
+    .update({ status: "cancelled" } satisfies TablesUpdate<"planned_workouts">)
+    .in("id", workoutIds);
+
+  if (error) {
+    throw new Error(error.message);
+  }
+}
+
+async function getPlanWeekdayPatternMap(planId: string, trainerId: string) {
+  const supabase = createSupabaseClient();
+  const { data, error } = await supabase
+    .from("planned_workouts")
+    .select("planned_date, pattern_id")
+    .eq("training_plan_id", planId)
+    .eq("trainer_id", trainerId)
+    .neq("status", "cancelled")
+    .not("pattern_id", "is", null)
+    .order("planned_date", { ascending: true });
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  const map = new Map<number, string>();
+
+  for (const workout of data ?? []) {
+    if (!workout.pattern_id) {
+      continue;
+    }
+
+    const weekday = getIsoWeekday(workout.planned_date);
+
+    if (!map.has(weekday)) {
+      map.set(weekday, workout.pattern_id);
+    }
+  }
+
+  return map;
+}
+
+async function getPatternMapForPlan(planId: string, trainerId: string) {
+  const supabase = createSupabaseClient();
+  const { data, error } = await supabase
+    .from("training_plan_patterns")
+    .select("*, training_plans(client_id)")
+    .eq("training_plan_id", planId)
+    .eq("trainer_id", trainerId)
+    .neq("status", "archived");
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return new Map(
+    (data ?? []).map((pattern) => [
+      pattern.id,
+      {
+        ...(pattern as Tables<"training_plan_patterns"> & { training_plans: { client_id: string } | null }),
+        client_id: (pattern as { training_plans: { client_id: string } | null }).training_plans?.client_id ?? ""
+      } satisfies PatternForAction
+    ])
+  );
+}
+
+async function getNonCancelledPlanWorkoutKeys(planId: string, trainerId: string, excludedIds: string[]) {
+  const supabase = createSupabaseClient();
+  const { data, error } = await supabase
+    .from("planned_workouts")
+    .select("id, planned_date, pattern_id")
+    .eq("training_plan_id", planId)
+    .eq("trainer_id", trainerId)
+    .neq("status", "cancelled");
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  const excluded = new Set(excludedIds);
+
+  return (data ?? []).filter((workout) => !excluded.has(workout.id));
+}
+
+function plannedWorkoutDedupeKey(plannedDate: string, patternId: string | null) {
+  return `${plannedDate}:${patternId ?? "none"}`;
 }
 
 async function copyPlanPatternsToTemplate(planId: string, templateId: string, trainerId: string) {
