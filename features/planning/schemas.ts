@@ -24,12 +24,15 @@ export const splitTypeSchema = z.enum(["full_body", "upper_lower", "push_pull_le
 export const trainingPlanStatusSchema = z.enum(["active", "inactive", "completed", "archived"]);
 export const plannedWorkoutStatusSchema = z.enum(["planned", "scheduled", "in_progress", "completed", "cancelled"]);
 export const futureUpdateModeSchema = z.enum(["update_unscheduled", "plan_only", "cancel_unscheduled"]).default("update_unscheduled");
+export const extendTrainingPlanSchema = z.object({
+  extend_weeks: z.coerce.number().int().min(1, "Добавьте минимум 1 неделю").max(52, "За один раз можно добавить до 52 недель")
+});
 
 export const trainingPlanSchema = z
   .object({
     name: z.string().trim().min(1, "Введите название плана"),
     starts_on: z.string().trim().regex(/^\d{4}-\d{2}-\d{2}$/, "Выберите дату старта"),
-    duration_weeks: z.coerce.number().int().min(1).max(52).default(4),
+    duration_weeks: z.coerce.number().int().min(1).max(156).default(4),
     training_weekdays: z
       .array(z.coerce.number().int().min(1).max(7))
       .min(1, "Выберите хотя бы один тренировочный день"),
@@ -106,7 +109,7 @@ export const createPlanFromTemplateSchema = z
     template_id: z.string().uuid("Выберите шаблон"),
     name: optionalText,
     starts_on: z.string().trim().regex(/^\d{4}-\d{2}-\d{2}$/, "Выберите дату старта"),
-    duration_weeks: z.coerce.number().int().min(1).max(52).default(4),
+    duration_weeks: z.coerce.number().int().min(1).max(156).default(4),
     training_weekdays: z
       .array(z.coerce.number().int().min(1).max(7))
       .min(1, "Выберите хотя бы один тренировочный день")

@@ -53,13 +53,9 @@ export function CreatePlanFromTemplateForm({
             <div className="grid gap-4 sm:grid-cols-2">
               <Field label="Дата старта" name="starts_on" type="date" defaultValue={defaultStartDate} required />
               <div className="space-y-2">
-                <Label htmlFor="duration_weeks">Длительность</Label>
-                <Select id="duration_weeks" name="duration_weeks" defaultValue="4">
-                  <option value="4">4 недели</option>
-                  <option value="6">6 недель</option>
-                  <option value="8">8 недель</option>
-                  <option value="12">12 недель</option>
-                </Select>
+                <Label htmlFor="duration_weeks">Срок действия, недель</Label>
+                <Input id="duration_weeks" name="duration_weeks" type="number" min={1} max={156} defaultValue={4} required />
+                <p className="text-xs text-muted-foreground">По умолчанию 4 недели. Минимум 1 неделя.</p>
               </div>
             </div>
 

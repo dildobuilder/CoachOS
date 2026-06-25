@@ -42,13 +42,17 @@ export function TrainingPlanForm({ clientId, defaultStartDate, plan }: TrainingP
 
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2">
-              <Label htmlFor="duration_weeks">Длительность</Label>
-              <Select id="duration_weeks" name="duration_weeks" defaultValue={String(plan?.duration_weeks ?? 4)}>
-                <option value="4">4 недели</option>
-                <option value="6">6 недель</option>
-                <option value="8">8 недель</option>
-                <option value="12">12 недель</option>
-              </Select>
+              <Label htmlFor="duration_weeks">Срок действия, недель</Label>
+              <Input
+                id="duration_weeks"
+                name="duration_weeks"
+                type="number"
+                min={1}
+                max={156}
+                defaultValue={plan?.duration_weeks ?? 4}
+                required
+              />
+              <p className="text-xs text-muted-foreground">По умолчанию 4 недели. Минимум 1 неделя.</p>
             </div>
             <div className="space-y-2">
               <Label htmlFor="split_type">Тип сплита</Label>
@@ -98,7 +102,9 @@ export function TrainingPlanForm({ clientId, defaultStartDate, plan }: TrainingP
                     <input type="radio" name="future_update_mode" value="update_unscheduled" defaultChecked />
                     <span>
                       <span className="block font-medium">Обновить будущие тренировки без времени</span>
-                      <span className="text-muted-foreground">Отменит безопасные будущие черновики и создаст новые по обновленным дням.</span>
+                      <span className="text-muted-foreground">
+                        Отменит безопасные будущие черновики и создаст новые по обновленным дням.
+                      </span>
                     </span>
                   </label>
                   <label className="flex gap-2 rounded-md border bg-background p-3 text-sm">

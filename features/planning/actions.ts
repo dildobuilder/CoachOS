@@ -8,6 +8,7 @@ import {
   applyPatternSchema,
   assignPatternSchema,
   createPlanFromTemplateSchema,
+  extendTrainingPlanSchema,
   futureUpdateModeSchema,
   patternExerciseUpdateSchema,
   patternSetSchema,
@@ -251,6 +252,101 @@ export async function updateTrainingPlan(planId: string, formData: FormData) {
         }
       } else if (safeWorkoutIds.length > 0) {
         await cancelPlannedWorkoutsByIds(safeWorkoutIds);
+      }
+    }
+
+    revalidatePath(`/clients/${plan.client_id}`);
+    revalidatePath(`/clients/${plan.client_id}/plans`);
+    revalidatePath(`/clients/${plan.client_id}/plans/${plan.id}`);
+    revalidatePath(`/clients/${plan.client_id}/calendar`);
+    redirect(`/clients/${plan.client_id}/plans/${plan.id}`);
+  } catch (error) {
+    redirectActionError(error, "/clients");
+  }
+}
+
+export async function extendTrainingPlan(planId: string, formData: FormData) {
+  try {
+    const parsed = extendTrainingPlanSchema.safeParse({
+      extend_weeks: formData.get("extend_weeks")
+    });
+    const plan = await getTrainingPlanForAction(planId);
+
+    if (!parsed.success) {
+      redirect(`/clients/${plan.client_id}/plans/${plan.id}?error=${encodeURIComponent(parsed.error.issues[0]?.message ?? "Invalid extension")}`);
+    }
+
+    const trainerId = await getUserId(`/clients/${plan.client_id}/plans/${plan.id}`);
+    const nextDurationWeeks = plan.duration_weeks + parsed.data.extend_weeks;
+
+    if (nextDurationWeeks > 156) {
+      redirect(`/clients/${plan.client_id}/plans/${plan.id}?error=${encodeURIComponent("Максимальный срок плана — 156 недель")}`);
+    }
+
+    const supabase = createSupabaseClient();
+    const previousEndsOn = plan.ends_on;
+    const nextEndsOn = addDays(plan.starts_on, nextDurationWeeks * 7 - 1);
+    const { error } = await supabase
+      .from("training_plans")
+      .update({
+        duration_weeks: nextDurationWeeks,
+        ends_on: nextEndsOn
+      } satisfies TablesUpdate<"training_plans">)
+      .eq("id", plan.id)
+      .eq("trainer_id", trainerId);
+
+    if (error) {
+      redirect(`/clients/${plan.client_id}/plans/${plan.id}?error=${encodeURIComponent(error.message)}`);
+    }
+
+    const extendedPlan = {
+      ...plan,
+      duration_weeks: nextDurationWeeks,
+      ends_on: nextEndsOn
+    };
+    const weekdayPatternMap = await getPlanWeekdayPatternMap(plan.id, trainerId);
+    const patternsById = await getPatternMapForPlan(plan.id, trainerId);
+    const existingWorkouts = await getNonCancelledPlanWorkoutKeys(plan.id, trainerId, []);
+    const existingDates = new Set(existingWorkouts.map((workout) => workout.planned_date));
+    const existingKeys = new Set(existingWorkouts.map((workout) => plannedWorkoutDedupeKey(workout.planned_date, workout.pattern_id)));
+    const workoutsToInsert = generatePlannedWorkouts(extendedPlan, plan.training_weekdays)
+      .filter((workout) => workout.planned_date > previousEndsOn)
+      .map((workout) => {
+        const patternId = weekdayPatternMap.get(getIsoWeekday(workout.planned_date)) ?? null;
+        const pattern = patternId ? patternsById.get(patternId) : null;
+
+        return {
+          ...workout,
+          name: pattern?.name ?? extendedPlan.name,
+          trainer_id: trainerId,
+          training_plan_id: plan.id,
+          client_id: plan.client_id,
+          pattern_id: patternId
+        } satisfies TablesInsert<"planned_workouts">;
+      })
+      .filter((workout) => {
+        if (existingDates.has(workout.planned_date)) {
+          return false;
+        }
+
+        return !existingKeys.has(plannedWorkoutDedupeKey(workout.planned_date, workout.pattern_id ?? null));
+      });
+
+    if (workoutsToInsert.length > 0) {
+      const { data: insertedWorkouts, error: insertError } = await supabase
+        .from("planned_workouts")
+        .insert(workoutsToInsert)
+        .select("*");
+
+      if (insertError) {
+        redirect(`/clients/${plan.client_id}/plans/${plan.id}?error=${encodeURIComponent(insertError.message)}`);
+      }
+
+      for (const workout of insertedWorkouts ?? []) {
+        if (workout.pattern_id) {
+          const pattern = patternsById.get(workout.pattern_id) ?? (await getPatternForAction(workout.pattern_id));
+          await replacePlannedWorkoutContentFromPattern(pattern, [workout]);
+        }
       }
     }
 
