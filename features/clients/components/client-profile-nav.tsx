@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 
 type ClientProfileNavProps = {
   clientId: string;
-  active: "overview" | "calendar" | "plans" | "history";
+  active: "overview" | "calendar" | "plans" | "progress" | "history";
 };
 
 export function ClientProfileNav({ clientId, active }: ClientProfileNavProps) {
@@ -11,6 +11,7 @@ export function ClientProfileNav({ clientId, active }: ClientProfileNavProps) {
     { key: "overview", href: `/clients/${clientId}`, label: "Обзор" },
     { key: "calendar", href: `/clients/${clientId}/calendar`, label: "Календарь" },
     { key: "plans", href: `/clients/${clientId}/plans`, label: "Планы" },
+    { key: "progress", href: `/clients/${clientId}/progress`, label: "Прогресс" },
     { key: "history", href: `/clients/${clientId}/history`, label: "История" }
   ] as const;
 
