@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { ClientProfileNav } from "@/features/clients/components/client-profile-nav";
 import { getClientById } from "@/features/clients/queries";
 import { ExtendTrainingPlanForm } from "@/features/planning/components/extend-training-plan-form";
+import { PlanFillSummary } from "@/features/planning/components/plan-fill-summary";
 import { PlanPatternsPanel } from "@/features/planning/components/plan-patterns-panel";
 import { PlanWorkoutList } from "@/features/planning/components/plan-workout-list";
 import { getPlanWorkouts, getTrainingPlan, getTrainingPlanPatterns } from "@/features/planning/queries";
@@ -43,7 +44,8 @@ export default async function TrainingPlanPage({ params, searchParams }: Trainin
           <Link href={`/clients/${client.id}/plans/${plan.id}/edit`}>Редактировать</Link>
         </Button>
       </div>
-      <PlanPatternsPanel clientId={client.id} plan={plan} patterns={patterns} />
+      <PlanFillSummary plan={plan} patterns={patterns} workouts={workouts} />
+      <PlanPatternsPanel clientId={client.id} plan={plan} patterns={patterns} workouts={workouts} />
       <ExtendTrainingPlanForm plan={plan} />
       <PlanWorkoutList clientId={client.id} workouts={workouts} />
     </div>

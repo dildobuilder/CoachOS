@@ -7,16 +7,18 @@ import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import {
+  assignPatternsToWeekdays,
   assignPatternToWeekday,
   createTrainingPlanPattern,
   saveTrainingPlanAsTemplate
 } from "@/features/planning/actions";
-import type { TrainingPlanPatternRow, TrainingPlanRow } from "@/features/planning/queries";
+import type { PlannedWorkoutListItem, TrainingPlanPatternRow, TrainingPlanRow } from "@/features/planning/queries";
 
 type PlanPatternsPanelProps = {
   clientId: string;
   plan: TrainingPlanRow;
   patterns: TrainingPlanPatternRow[];
+  workouts: PlannedWorkoutListItem[];
 };
 
 const weekdayLabels: Record<number, string> = {
@@ -29,9 +31,11 @@ const weekdayLabels: Record<number, string> = {
   7: "Воскресенье"
 };
 
-export function PlanPatternsPanel({ clientId, plan, patterns }: PlanPatternsPanelProps) {
+export function PlanPatternsPanel({ clientId, plan, patterns, workouts }: PlanPatternsPanelProps) {
+  const weekdayPatternMap = getWeekdayPatternMap(workouts);
+
   return (
-    <div className="grid gap-4">
+    <div id="plan-patterns" className="grid gap-4">
       <Card>
         <CardHeader>
           <CardTitle>A/B/C patterns</CardTitle>
@@ -68,15 +72,17 @@ export function PlanPatternsPanel({ clientId, plan, patterns }: PlanPatternsPane
 
       <Card>
         <CardHeader>
-          <CardTitle>Назначение на дни недели</CardTitle>
+          <CardTitle>Расписание patterns</CardTitle>
         </CardHeader>
-        <CardContent className="grid gap-3">
-          {plan.training_weekdays.map((weekday) => (
-            <form key={weekday} action={assignPatternToWeekday.bind(null, plan.id)} className="flex flex-col gap-2 rounded-md border p-3 sm:flex-row sm:items-center sm:justify-between">
-              <input type="hidden" name="weekday" value={weekday} />
-              <div className="font-medium">{weekdayLabels[weekday] ?? weekday}</div>
-              <div className="flex flex-wrap gap-2">
-                <Select name="pattern_id" required>
+        <CardContent className="grid gap-4">
+          <p className="text-sm text-muted-foreground">
+            Будут обновлены только будущие тренировки без времени. Тренировки с назначенным временем, начатые и завершенные тренировки не изменятся.
+          </p>
+          <form action={assignPatternsToWeekdays.bind(null, plan.id)} className="grid gap-3">
+            {plan.training_weekdays.map((weekday) => (
+              <div key={weekday} className="grid gap-2 rounded-md border p-3 sm:grid-cols-[180px_1fr] sm:items-center">
+                <div className="font-medium">{weekdayLabels[weekday] ?? weekday}</div>
+                <Select name={`weekday_${weekday}`} defaultValue={weekdayPatternMap.get(weekday) ?? ""} required>
                   <option value="">Выберите pattern</option>
                   {patterns.map((pattern) => (
                     <option key={pattern.id} value={pattern.id}>
@@ -84,12 +90,37 @@ export function PlanPatternsPanel({ clientId, plan, patterns }: PlanPatternsPane
                     </option>
                   ))}
                 </Select>
-                <SubmitButton size="sm" disabled={patterns.length === 0}>
-                  Применить
-                </SubmitButton>
               </div>
-            </form>
-          ))}
+            ))}
+            <div className="flex justify-end">
+              <SubmitButton disabled={patterns.length === 0}>Применить расписание patterns</SubmitButton>
+            </div>
+          </form>
+
+          <details className="rounded-md border bg-muted/20 p-3">
+            <summary className="cursor-pointer text-sm font-medium">Точечное назначение</summary>
+            <div className="mt-3 grid gap-3">
+              {plan.training_weekdays.map((weekday) => (
+                <form key={weekday} action={assignPatternToWeekday.bind(null, plan.id)} className="flex flex-col gap-2 rounded-md border bg-background p-3 sm:flex-row sm:items-center sm:justify-between">
+                  <input type="hidden" name="weekday" value={weekday} />
+                  <div className="font-medium">{weekdayLabels[weekday] ?? weekday}</div>
+                  <div className="flex flex-wrap gap-2">
+                    <Select name="pattern_id" required>
+                      <option value="">Выберите pattern</option>
+                      {patterns.map((pattern) => (
+                        <option key={pattern.id} value={pattern.id}>
+                          {pattern.code} - {pattern.name}
+                        </option>
+                      ))}
+                    </Select>
+                    <SubmitButton size="sm" disabled={patterns.length === 0}>
+                      Применить
+                    </SubmitButton>
+                  </div>
+                </form>
+              ))}
+            </div>
+          </details>
         </CardContent>
       </Card>
 
@@ -116,6 +147,31 @@ export function PlanPatternsPanel({ clientId, plan, patterns }: PlanPatternsPane
       </Card>
     </div>
   );
+}
+
+function getWeekdayPatternMap(workouts: PlannedWorkoutListItem[]) {
+  const map = new Map<number, string>();
+
+  for (const workout of workouts) {
+    if (!workout.pattern_id || workout.status === "cancelled") {
+      continue;
+    }
+
+    const weekday = getIsoWeekday(workout.planned_date);
+
+    if (!map.has(weekday)) {
+      map.set(weekday, workout.pattern_id);
+    }
+  }
+
+  return map;
+}
+
+function getIsoWeekday(dateValue: string) {
+  const date = new Date(`${dateValue}T00:00:00.000Z`);
+  const day = date.getUTCDay();
+
+  return day === 0 ? 7 : day;
 }
 
 function Field({

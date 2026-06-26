@@ -7,6 +7,7 @@ import { getTrainerProfile } from "@/features/trainer/queries";
 import {
   applyPatternSchema,
   assignPatternSchema,
+  assignPatternsSchema,
   createPlanFromTemplateSchema,
   extendTrainingPlanSchema,
   futureUpdateModeSchema,
@@ -71,6 +72,17 @@ function assignPatternFormDataToObject(formData: FormData) {
   return {
     weekday: formData.get("weekday"),
     pattern_id: formData.get("pattern_id")
+  };
+}
+
+function assignPatternsFormDataToObject(formData: FormData) {
+  return {
+    assignments: Array.from(formData.entries())
+      .filter(([key]) => key.startsWith("weekday_"))
+      .map(([key, value]) => ({
+        weekday: key.replace("weekday_", ""),
+        pattern_id: value
+      }))
   };
 }
 
@@ -714,6 +726,64 @@ export async function assignPatternToWeekday(planId: string, formData: FormData)
 
     revalidatePath(`/clients/${plan.client_id}/plans/${plan.id}`);
     revalidatePath(`/clients/${plan.client_id}/calendar`);
+  } catch (error) {
+    redirectActionError(error, "/clients");
+  }
+}
+
+export async function assignPatternsToWeekdays(planId: string, formData: FormData) {
+  try {
+    const plan = await getTrainingPlanForAction(planId);
+    const trainerId = await getUserId(`/clients/${plan.client_id}/plans/${plan.id}`);
+
+    if (plan.trainer_id !== trainerId) {
+      redirect(`/clients/${plan.client_id}/plans/${plan.id}?error=${encodeURIComponent("План не найден")}`);
+    }
+
+    await ensureClientOwnership(plan.client_id, trainerId);
+
+    const parsed = assignPatternsSchema.safeParse(assignPatternsFormDataToObject(formData));
+
+    if (!parsed.success) {
+      redirect(`/clients/${plan.client_id}/plans/${plan.id}?error=${encodeURIComponent(parsed.error.issues[0]?.message ?? "Ошибка")}`);
+    }
+
+    const planWeekdays = new Set(plan.training_weekdays);
+    const assignedWeekdays = new Set(parsed.data.assignments.map((assignment) => assignment.weekday));
+
+    if (assignedWeekdays.size !== plan.training_weekdays.length || plan.training_weekdays.some((weekday) => !assignedWeekdays.has(weekday))) {
+      redirect(`/clients/${plan.client_id}/plans/${plan.id}?error=${encodeURIComponent("Назначьте pattern для каждого тренировочного дня")}`);
+    }
+
+    if (parsed.data.assignments.some((assignment) => !planWeekdays.has(assignment.weekday))) {
+      redirect(`/clients/${plan.client_id}/plans/${plan.id}?error=${encodeURIComponent("День недели не входит в план")}`);
+    }
+
+    const patternsById = await getPatternMapForPlan(plan.id, trainerId);
+
+    for (const assignment of parsed.data.assignments) {
+      if (!patternsById.has(assignment.pattern_id)) {
+        redirect(`/clients/${plan.client_id}/plans/${plan.id}?error=${encodeURIComponent("Pattern должен принадлежать этому плану")}`);
+      }
+    }
+
+    const safeWorkouts = await getSafeFutureUnscheduledPlannedWorkouts(plan.id, trainerId);
+
+    for (const assignment of parsed.data.assignments) {
+      const pattern = patternsById.get(assignment.pattern_id);
+
+      if (!pattern) {
+        continue;
+      }
+
+      const workouts = safeWorkouts.filter((workout) => getIsoWeekday(workout.planned_date) === assignment.weekday);
+      await replacePlannedWorkoutContentFromPattern(pattern, workouts);
+    }
+
+    revalidatePath(`/clients/${plan.client_id}`);
+    revalidatePath(`/clients/${plan.client_id}/calendar`);
+    revalidatePath(`/clients/${plan.client_id}/plans`);
+    revalidatePath(`/clients/${plan.client_id}/plans/${plan.id}`);
   } catch (error) {
     redirectActionError(error, "/clients");
   }

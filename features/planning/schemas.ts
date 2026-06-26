@@ -93,6 +93,33 @@ export const assignPatternSchema = z.object({
   pattern_id: z.string().uuid("Выберите тренировку")
 });
 
+export const assignPatternsSchema = z
+  .object({
+    assignments: z
+      .array(
+        z.object({
+          weekday: z.coerce.number().int().min(1).max(7),
+          pattern_id: z.string().uuid("Выберите тренировку")
+        })
+      )
+      .min(1, "Назначьте хотя бы один pattern")
+  })
+  .superRefine((value, context) => {
+    const seen = new Set<number>();
+
+    for (const assignment of value.assignments) {
+      if (seen.has(assignment.weekday)) {
+        context.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["assignments"],
+          message: "День недели не должен повторяться"
+        });
+      }
+
+      seen.add(assignment.weekday);
+    }
+  });
+
 export const applyPatternSchema = z.object({
   scope: z.enum(["future_only", "all_not_started"]).default("future_only")
 });

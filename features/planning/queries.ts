@@ -18,7 +18,15 @@ export type PlannedWorkoutListItem = PlannedWorkoutRow & {
   training_plans: Pick<TrainingPlanRow, "id" | "name"> | null;
   training_plan_patterns: Pick<TrainingPlanPatternRow, "id" | "code" | "name"> | null;
   calendar_events: Pick<Tables<"calendar_events">, "id" | "starts_at" | "ends_at" | "status"> | null;
+  planned_exercise_count: number;
   existing_session_id: string | null;
+};
+
+type PlannedWorkoutListQueryRow = PlannedWorkoutRow & {
+  training_plans: Pick<TrainingPlanRow, "id" | "name"> | null;
+  training_plan_patterns: Pick<TrainingPlanPatternRow, "id" | "code" | "name"> | null;
+  calendar_events: Pick<Tables<"calendar_events">, "id" | "starts_at" | "ends_at" | "status"> | null;
+  planned_exercises: Pick<PlannedExerciseRow, "id">[];
 };
 
 export type PlannedExerciseWithSets = PlannedExerciseRow & {
@@ -200,7 +208,7 @@ export async function getPlanWorkouts(planId: string): Promise<PlannedWorkoutLis
   const supabase = createClient();
   const { data, error } = await supabase
     .from("planned_workouts")
-    .select("*, training_plans(id, name), training_plan_patterns(id, code, name), calendar_events(id, starts_at, ends_at, status)")
+    .select("*, training_plans(id, name), training_plan_patterns(id, code, name), calendar_events(id, starts_at, ends_at, status), planned_exercises(id)")
     .eq("training_plan_id", planId)
     .order("planned_date", { ascending: true })
     .order("day_number", { ascending: true });
@@ -209,7 +217,7 @@ export async function getPlanWorkouts(planId: string): Promise<PlannedWorkoutLis
     throw new Error(error.message);
   }
 
-  return addExistingSessionIds((data ?? []) as PlannedWorkoutListItem[]);
+  return addExistingSessionIds(normalizePlannedWorkoutList(data ?? []));
 }
 
 export async function getClientPlannedWorkouts(
@@ -219,7 +227,7 @@ export async function getClientPlannedWorkouts(
   const supabase = createClient();
   const { data, error } = await supabase
     .from("planned_workouts")
-    .select("*, training_plans(id, name), training_plan_patterns(id, code, name), calendar_events(id, starts_at, ends_at, status)")
+    .select("*, training_plans(id, name), training_plan_patterns(id, code, name), calendar_events(id, starts_at, ends_at, status), planned_exercises(id)")
     .eq("client_id", clientId)
     .neq("status", "cancelled")
     .gte("planned_date", range.startDate)
@@ -230,7 +238,7 @@ export async function getClientPlannedWorkouts(
     throw new Error(error.message);
   }
 
-  return addExistingSessionIds((data ?? []) as PlannedWorkoutListItem[]);
+  return addExistingSessionIds(normalizePlannedWorkoutList(data ?? []));
 }
 
 export async function getPlannedWorkout(plannedWorkoutId: string): Promise<PlannedWorkoutDetail> {
@@ -461,6 +469,18 @@ async function addExistingSessionIds(workouts: PlannedWorkoutListItem[]): Promis
     existing_session_id:
       data?.find((session) => session.calendar_event_id === workout.calendar_event_id)?.id ?? null
   }));
+}
+
+function normalizePlannedWorkoutList(rows: unknown[]): PlannedWorkoutListItem[] {
+  return (rows as PlannedWorkoutListQueryRow[]).map((row) => {
+    const { planned_exercises, ...workout } = row;
+
+    return {
+      ...workout,
+      planned_exercise_count: planned_exercises?.length ?? 0,
+      existing_session_id: null
+    };
+  });
 }
 
 async function getExistingSessionIdForEvent(eventId: string) {

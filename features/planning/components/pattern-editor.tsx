@@ -23,6 +23,10 @@ type PatternEditorProps = {
 
 export async function PatternEditor({ pattern, clientId }: PatternEditorProps) {
   const [exercises, categories] = await Promise.all([getAvailableExercises(), getExerciseCategories()]);
+  const plannedSetsCount = pattern.pattern_exercises.reduce(
+    (total, exercise) => total + exercise.pattern_sets.length,
+    0
+  );
 
   return (
     <div className="space-y-6">
@@ -31,6 +35,10 @@ export async function PatternEditor({ pattern, clientId }: PatternEditorProps) {
           <CardTitle>Pattern {pattern.code}</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
+          <div className="grid gap-3 sm:grid-cols-2">
+            <Counter label="Упражнений" value={pattern.pattern_exercises.length} />
+            <Counter label="Подходов" value={plannedSetsCount} />
+          </div>
           <form action={updateTrainingPlanPattern.bind(null, pattern.id)} className="grid gap-4">
             <div className="grid gap-4 sm:grid-cols-[120px_1fr]">
               <Field label="Код" name="code" defaultValue={pattern.code} required />
@@ -58,9 +66,9 @@ export async function PatternEditor({ pattern, clientId }: PatternEditorProps) {
       <Card>
         <CardContent className="flex flex-col gap-3 p-4 sm:flex-row sm:items-end sm:justify-between">
           <div>
-            <h3 className="font-semibold">Применить pattern</h3>
+            <h3 className="font-semibold">Применить к будущим тренировкам</h3>
             <p className="text-sm text-muted-foreground">
-              Обновит planned workouts с этим pattern. Started/completed не перезаписываются.
+              Будут изменены только будущие тренировки без времени. Назначенные, начатые и завершенные тренировки не изменятся.
             </p>
           </div>
           <form action={applyPatternToPlannedWorkouts.bind(null, pattern.id)} className="flex flex-wrap gap-2">
@@ -86,6 +94,15 @@ export async function PatternEditor({ pattern, clientId }: PatternEditorProps) {
       </div>
 
       <AddPatternExerciseFromLibrary patternId={pattern.id} exercises={exercises} categories={categories} />
+    </div>
+  );
+}
+
+function Counter({ label, value }: { label: string; value: number }) {
+  return (
+    <div className="rounded-md border bg-background p-3">
+      <div className="text-xs font-medium uppercase text-muted-foreground">{label}</div>
+      <div className="mt-1 text-xl font-semibold">{value}</div>
     </div>
   );
 }

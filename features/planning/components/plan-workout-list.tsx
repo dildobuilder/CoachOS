@@ -1,3 +1,6 @@
+"use client";
+
+import { useMemo, useState } from "react";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -10,8 +13,22 @@ type PlanWorkoutListProps = {
   workouts: PlannedWorkoutListItem[];
 };
 
+type WorkoutFilter = "all" | "without_pattern" | "empty" | "future_unscheduled";
+
+const filters: { value: WorkoutFilter; label: string }[] = [
+  { value: "all", label: "Все" },
+  { value: "without_pattern", label: "Без pattern" },
+  { value: "empty", label: "Пустые" },
+  { value: "future_unscheduled", label: "Будущие без времени" }
+];
+
 export function PlanWorkoutList({ clientId, workouts }: PlanWorkoutListProps) {
+  const [activeFilter, setActiveFilter] = useState<WorkoutFilter>("all");
   const summary = getWorkoutSummary(workouts);
+  const filteredWorkouts = useMemo(
+    () => workouts.filter((workout) => matchesFilter(workout, activeFilter)),
+    [activeFilter, workouts]
+  );
 
   return (
     <div className="grid gap-3">
@@ -21,18 +38,38 @@ export function PlanWorkoutList({ clientId, workouts }: PlanWorkoutListProps) {
         <SummaryItem label="Завершено" value={summary.completed} />
         <SummaryItem label="Отменено" value={summary.cancelled} />
       </div>
-      {workouts.map((workout) => (
+
+      <div className="flex flex-wrap gap-2">
+        {filters.map((filter) => (
+          <Button
+            key={filter.value}
+            type="button"
+            size="sm"
+            variant={activeFilter === filter.value ? "default" : "outline"}
+            onClick={() => setActiveFilter(filter.value)}
+          >
+            {filter.label}
+          </Button>
+        ))}
+      </div>
+
+      {filteredWorkouts.length === 0 ? (
+        <Card>
+          <CardContent className="p-5 text-sm text-muted-foreground">{emptyFilterText(activeFilter)}</CardContent>
+        </Card>
+      ) : null}
+
+      {filteredWorkouts.map((workout) => (
         <Card key={workout.id}>
           <CardContent className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
-            <div className="space-y-1">
+            <div className="space-y-2">
               <div className="flex flex-wrap items-center gap-2">
                 <h3 className="font-semibold">{plannedWorkoutTitle(workout)}</h3>
-                <Badge variant={workout.status === "planned" ? "outline" : "default"}>{statusLabel(workout.status)}</Badge>
-                {workout.training_plan_patterns ? (
-                  <Badge variant="secondary">
-                    {workout.training_plan_patterns.code} - {workout.training_plan_patterns.name}
+                {statusBadges(workout).map((badge) => (
+                  <Badge key={badge.label} variant={badge.variant}>
+                    {badge.label}
                   </Badge>
-                ) : null}
+                ))}
               </div>
               <p className="text-sm text-muted-foreground">
                 Неделя {workout.week_number} · {formatDate(workout.planned_date)}
@@ -42,6 +79,11 @@ export function PlanWorkoutList({ clientId, workouts }: PlanWorkoutListProps) {
               </p>
             </div>
             <div className="flex flex-wrap gap-2">
+              {!workout.calendar_event_id && workout.status === "planned" ? (
+                <Button asChild>
+                  <Link href={`/clients/${clientId}/planned-workouts/${workout.id}`}>Назначить время</Link>
+                </Button>
+              ) : null}
               {workout.calendar_event_id && workout.status !== "completed" ? (
                 <StartWorkoutButton eventId={workout.calendar_event_id} status={workout.status === "in_progress" ? "started" : "scheduled"} />
               ) : null}
@@ -71,23 +113,17 @@ function SummaryItem({ label, value }: { label: string; value: number }) {
 }
 
 function getWorkoutSummary(workouts: PlannedWorkoutListItem[]) {
-  const today = toDateString(new Date());
-
   return workouts.reduce(
     (summary, workout) => {
-      const isFuture = workout.planned_date >= today;
-      const hasCalendarSlot = Boolean(workout.calendar_event_id);
-      const hasSession = Boolean(workout.existing_session_id);
-
-      if (isFuture && workout.status === "planned" && !hasCalendarSlot && !hasSession) {
+      if (isFutureUnscheduled(workout)) {
         summary.futureUnscheduled += 1;
       }
 
-      if (workout.status === "scheduled" || hasCalendarSlot) {
+      if (workout.status === "scheduled" || workout.calendar_event_id) {
         summary.scheduled += 1;
       }
 
-      if (workout.status === "completed") {
+      if (isCompleted(workout)) {
         summary.completed += 1;
       }
 
@@ -101,24 +137,80 @@ function getWorkoutSummary(workouts: PlannedWorkoutListItem[]) {
   );
 }
 
-function statusLabel(status: PlannedWorkoutListItem["status"]) {
-  if (status === "scheduled") {
-    return "В календаре";
+function matchesFilter(workout: PlannedWorkoutListItem, filter: WorkoutFilter) {
+  if (filter === "without_pattern") {
+    return workout.status !== "cancelled" && !workout.pattern_id;
   }
 
-  if (status === "in_progress") {
-    return "Идет";
+  if (filter === "empty") {
+    return workout.status !== "cancelled" && workout.planned_exercise_count === 0;
   }
 
-  if (status === "completed") {
-    return "Завершена";
+  if (filter === "future_unscheduled") {
+    return isFutureUnscheduled(workout);
   }
 
-  if (status === "cancelled") {
-    return "Отменена";
+  return true;
+}
+
+function statusBadges(workout: PlannedWorkoutListItem): { label: string; variant: "default" | "secondary" | "destructive" | "outline" }[] {
+  const badges: { label: string; variant: "default" | "secondary" | "destructive" | "outline" }[] = [];
+
+  if (workout.status === "cancelled") {
+    return [{ label: "Отменена", variant: "destructive" }];
   }
 
-  return "План";
+  if (isCompleted(workout)) {
+    badges.push({ label: "Завершена", variant: "default" });
+  } else if (workout.calendar_event_id) {
+    badges.push({ label: "В календаре", variant: "default" });
+  } else if (!workout.pattern_id) {
+    badges.push({ label: "Без pattern", variant: "outline" });
+  }
+
+  if (workout.planned_exercise_count === 0) {
+    badges.push({ label: "Пустая", variant: "outline" });
+  } else if (workout.pattern_id) {
+    badges.push({ label: "Заполнена", variant: "secondary" });
+  }
+
+  if (workout.training_plan_patterns) {
+    badges.push({
+      label: `${workout.training_plan_patterns.code} - ${workout.training_plan_patterns.name}`,
+      variant: "secondary"
+    });
+  }
+
+  return badges;
+}
+
+function emptyFilterText(filter: WorkoutFilter) {
+  if (filter === "without_pattern") {
+    return "Тренировок без pattern нет.";
+  }
+
+  if (filter === "empty") {
+    return "Пустых тренировок без упражнений нет.";
+  }
+
+  if (filter === "future_unscheduled") {
+    return "Все будущие тренировки уже назначены или защищены.";
+  }
+
+  return "В этом плане пока нет тренировок.";
+}
+
+function isFutureUnscheduled(workout: PlannedWorkoutListItem) {
+  return (
+    workout.planned_date >= toDateString(new Date()) &&
+    workout.status === "planned" &&
+    !workout.calendar_event_id &&
+    !workout.existing_session_id
+  );
+}
+
+function isCompleted(workout: PlannedWorkoutListItem) {
+  return workout.status === "completed";
 }
 
 function plannedWorkoutTitle(workout: PlannedWorkoutListItem) {
