@@ -1,8 +1,8 @@
 import Link from "next/link";
+import { Pencil } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { activateTrainingPlan } from "@/features/planning/actions";
 import { ArchiveTrainingPlanButton } from "@/features/planning/components/archive-training-plan-button";
 import type { TrainingPlanRow } from "@/features/planning/queries";
 
@@ -25,9 +25,9 @@ export function TrainingPlanList({ clientId, plans }: TrainingPlanListProps) {
   return (
     <div className="grid gap-3">
       {plans.map((plan) => (
-        <Card key={plan.id}>
+        <Card key={plan.id} className="transition-colors hover:bg-secondary/30">
           <CardContent className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
-            <div className="space-y-1">
+            <Link href={`/clients/${clientId}/plans/${plan.id}`} className="min-w-0 flex-1 space-y-1 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
               <div className="flex flex-wrap items-center gap-2">
                 <h3 className="font-semibold">{plan.name}</h3>
                 <Badge variant={plan.status === "active" ? "default" : "outline"}>{statusLabel(plan.status)}</Badge>
@@ -35,24 +35,17 @@ export function TrainingPlanList({ clientId, plans }: TrainingPlanListProps) {
               <p className="text-sm text-muted-foreground">
                 {formatDate(plan.starts_on)} - {formatDate(plan.ends_on)} · {plan.sessions_per_week} трен./нед.
               </p>
-            </div>
-            <div className="flex flex-wrap gap-2">
-              {plan.status !== "active" && plan.status !== "archived" ? (
-                <form action={activateTrainingPlan.bind(null, plan.id)}>
-                  <Button type="submit" variant="secondary" size="sm">
-                    Сделать активным
-                  </Button>
-                </form>
-              ) : null}
-              <Button asChild variant="outline" size="sm">
-                <Link href={`/clients/${clientId}/plans/${plan.id}`}>Открыть</Link>
-              </Button>
+            </Link>
+
+            <div className="flex shrink-0 items-center gap-2 self-end sm:self-center">
               {plan.status !== "archived" ? (
-                <Button asChild variant="outline" size="sm">
-                  <Link href={`/clients/${clientId}/plans/${plan.id}/edit`}>Редактировать</Link>
+                <Button asChild variant="outline" size="icon" aria-label="Редактировать план" title="Редактировать план">
+                  <Link href={`/clients/${clientId}/plans/${plan.id}/edit`}>
+                    <Pencil className="h-4 w-4" />
+                  </Link>
                 </Button>
               ) : null}
-              {plan.status !== "archived" ? <ArchiveTrainingPlanButton planId={plan.id} /> : null}
+              {plan.status !== "archived" ? <ArchiveTrainingPlanButton planId={plan.id} compact /> : null}
             </div>
           </CardContent>
         </Card>

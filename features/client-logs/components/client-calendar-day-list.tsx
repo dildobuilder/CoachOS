@@ -4,6 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { StartWorkoutButton } from "@/features/calendar/components/start-workout-button";
+import { ClientCalendarDayAction } from "@/features/client-logs/components/client-calendar-day-action";
 import type { ClientCalendarDay } from "@/features/client-logs/queries";
 
 type ClientCalendarDayListProps = {
@@ -82,9 +83,7 @@ export function ClientCalendarDayList({ clientId, startDate, days }: ClientCalen
               <SectionLabel>Дневник</SectionLabel>
               <div className="grid gap-1 text-sm">
                 <div>Вес: {day.log?.body_weight ? `${day.log.body_weight} кг` : "нет данных"}</div>
-                <div>
-                  КБЖУ: {formatMacros(day.log)}
-                </div>
+                <div>КБЖУ: {formatMacros(day.log)}</div>
                 {day.log?.notes ? (
                   <div className="line-clamp-2 text-muted-foreground">Заметка: {day.log.notes}</div>
                 ) : (
@@ -93,11 +92,7 @@ export function ClientCalendarDayList({ clientId, startDate, days }: ClientCalen
               </div>
             </div>
 
-            <Button asChild variant={day.log ? "outline" : "default"} size="sm">
-              <Link href={`/clients/${clientId}/calendar?start=${startDate}&log_date=${day.date}`}>
-                {day.log ? "Редактировать" : "Заполнить"}
-              </Link>
-            </Button>
+            <ClientCalendarDayAction clientId={clientId} startDate={startDate} dayDate={day.date} log={day.log} />
           </CardContent>
         </Card>
       ))}

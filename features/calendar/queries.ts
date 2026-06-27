@@ -58,6 +58,22 @@ export function addDays(dateValue: string, days: number) {
   return formatDateValue(date);
 }
 
+export function startOfCalendarWeek(dateValue: string) {
+  const [year, month, day] = dateValue.split("-").map(Number);
+
+  if (!year || !month || !day) {
+    throw new Error("Invalid date value");
+  }
+
+  const date = new Date(Date.UTC(year, month - 1, day, 12, 0, 0));
+  const dayOfWeek = date.getUTCDay();
+  const daysSinceMonday = (dayOfWeek + 6) % 7;
+
+  date.setUTCDate(date.getUTCDate() - daysSinceMonday);
+
+  return formatDateValue(date);
+}
+
 export function getEventDateRange(dateValue: string, timezone = "Europe/Moscow", days = 1) {
   const [year, month, day] = dateValue.split("-").map(Number);
 
@@ -84,9 +100,20 @@ export async function getCalendarStartDate(dateValue?: string | null) {
   };
 }
 
+export async function getCalendarWeekStartDate(dateValue?: string | null) {
+  const profile = await getTrainerProfile();
+  const timezone = profile?.timezone || "Europe/Moscow";
+  const selectedDate = isDateValue(dateValue) ? dateValue : formatDateValueInTimeZone(new Date(), timezone);
+
+  return {
+    startDate: dateValue ? selectedDate : startOfCalendarWeek(selectedDate),
+    timezone
+  };
+}
+
 export async function getEventsForWeekResult(dateValue?: string | null): Promise<CalendarWeekResult> {
   try {
-    const { startDate, timezone } = await getCalendarStartDate(dateValue);
+    const { startDate, timezone } = await getCalendarWeekStartDate(dateValue);
     const range = getEventDateRange(startDate, timezone, 7);
     const eventsResult = await getEventsForRange(range.startsAt, range.endsAt);
 

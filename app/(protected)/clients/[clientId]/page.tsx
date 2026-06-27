@@ -31,15 +31,9 @@ export default async function ClientPage({ params }: ClientPageProps) {
         description="Карточка клиента и текущий тренировочный контекст."
       />
       <ClientProfileNav clientId={client.id} active="overview" />
-      <div className="flex flex-wrap gap-2">
-        <Button asChild>
-          <Link href={`/clients/${client.id}/edit`}>Редактировать</Link>
-        </Button>
-        <Button asChild variant="outline">
-          <Link href={`/clients/${client.id}/calendar`}>Календарь клиента</Link>
-        </Button>
-        <Button asChild variant="outline">
-          <Link href={`/clients/${client.id}/plans`}>Планы</Link>
+      <div className="flex justify-end">
+        <Button asChild variant="outline" size="sm">
+          <Link href={`/clients/${client.id}/edit`}>Редактировать клиента</Link>
         </Button>
       </div>
       <ClientWeightSummary

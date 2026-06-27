@@ -11,7 +11,7 @@ type CalendarToolbarProps = {
 
 export function CalendarToolbar({ startDate, timezone }: CalendarToolbarProps) {
   const router = useRouter();
-  const today = formatDateValueInTimeZone(new Date(), timezone);
+  const currentWeekStart = startOfCalendarWeek(formatDateValueInTimeZone(new Date(), timezone));
 
   function navigate(nextStartDate: string) {
     router.push(`/calendar?start=${nextStartDate}`);
@@ -20,14 +20,17 @@ export function CalendarToolbar({ startDate, timezone }: CalendarToolbarProps) {
   return (
     <div className="flex flex-col gap-3 rounded-lg border bg-card p-3 sm:flex-row sm:items-center sm:justify-between">
       <div className="flex flex-wrap items-center gap-2">
-        <Button type="button" variant="outline" size="sm" onClick={() => navigate(today)}>
-          Сегодня
+        <Button type="button" variant="outline" size="sm" onClick={() => navigate(currentWeekStart)}>
+          Эта неделя
         </Button>
         <Button type="button" variant="outline" size="sm" onClick={() => navigate(addDays(startDate, -7))}>
           Предыдущая неделя
         </Button>
         <Button type="button" variant="outline" size="sm" onClick={() => navigate(addDays(startDate, 7))}>
           Следующая неделя
+        </Button>
+        <Button type="button" variant="outline" size="sm" onClick={() => navigate(startOfCalendarWeek(startDate))}>
+          К началу недели
         </Button>
       </div>
       <div className="flex items-center gap-2">
@@ -50,6 +53,17 @@ export function CalendarToolbar({ startDate, timezone }: CalendarToolbarProps) {
 function addDays(dateValue: string, days: number) {
   const [year, month, day] = dateValue.split("-").map(Number);
   const date = new Date(Date.UTC(year, month - 1, day + days, 12, 0, 0));
+
+  return formatDateValue(date);
+}
+
+function startOfCalendarWeek(dateValue: string) {
+  const [year, month, day] = dateValue.split("-").map(Number);
+  const date = new Date(Date.UTC(year, month - 1, day, 12, 0, 0));
+  const dayOfWeek = date.getUTCDay();
+  const daysSinceMonday = (dayOfWeek + 6) % 7;
+
+  date.setUTCDate(date.getUTCDate() - daysSinceMonday);
 
   return formatDateValue(date);
 }

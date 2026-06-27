@@ -4,6 +4,7 @@ import { PageHeader } from "@/components/layout/page-header";
 import { Button } from "@/components/ui/button";
 import { ClientProfileNav } from "@/features/clients/components/client-profile-nav";
 import { getClientById } from "@/features/clients/queries";
+import { activateTrainingPlan } from "@/features/planning/actions";
 import { ExtendTrainingPlanForm } from "@/features/planning/components/extend-training-plan-form";
 import { PlanFillSummary } from "@/features/planning/components/plan-fill-summary";
 import { PlanPatternsPanel } from "@/features/planning/components/plan-patterns-panel";
@@ -38,11 +39,15 @@ export default async function TrainingPlanPage({ params, searchParams }: Trainin
           <Link href={`/clients/${client.id}/plans`}>Все планы</Link>
         </Button>
         <Button asChild variant="outline">
-          <Link href={`/clients/${client.id}/calendar`}>Календарь клиента</Link>
-        </Button>
-        <Button asChild variant="outline">
           <Link href={`/clients/${client.id}/plans/${plan.id}/edit`}>Редактировать</Link>
         </Button>
+        {plan.status !== "active" && plan.status !== "archived" ? (
+          <form action={activateTrainingPlan.bind(null, plan.id)}>
+            <Button type="submit" variant="secondary">
+              Сделать активным
+            </Button>
+          </form>
+        ) : null}
       </div>
       <PlanFillSummary plan={plan} patterns={patterns} workouts={workouts} />
       <PlanPatternsPanel clientId={client.id} plan={plan} patterns={patterns} workouts={workouts} />
